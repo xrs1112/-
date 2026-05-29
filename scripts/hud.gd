@@ -6,6 +6,9 @@ extends Control
 @onready var wave_label: Label = $WaveLabel
 
 func _ready() -> void:
+	# 让 HUD 不拦截鼠标事件，只子控件（按钮）响应
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
 	update_crystals(GameState.crystals)
 	update_lives(GameState.lives)
 	GameState.crystals_changed.connect(update_crystals)

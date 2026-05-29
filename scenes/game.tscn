@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3 uid="uid://game_main"]
+[gd_scene load_steps=6 format=3 uid="uid://game_main"]
 
 [ext_resource type="Script" path="res://scripts/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" path="res://scripts/wave_manager.gd" id="2_wm"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="3_hud"]
+[ext_resource type="Script" path="res://scripts/map_debug.gd" id="4_md"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_gm")
@@ -10,6 +11,9 @@ script = ExtResource("1_gm")
 [node name="Map" type="Node2D" parent="."]
 
 [node name="EnemyPath" type="Path2D" parent="Map"]
+
+[node name="MapDebug" type="Node2D" parent="Map"]
+script = ExtResource("4_md")
 
 [node name="BuildPositions" type="Node2D" parent="Map"]
 

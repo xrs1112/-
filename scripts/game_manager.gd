@@ -93,10 +93,27 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseButton:
+		# 跳过 UI 按钮区域的点击
+		if _is_mouse_over_ui(event.position):
+			return
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			_handle_left_click(event.position)
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			_cancel_all()
+
+func _is_mouse_over_ui(mouse_pos: Vector2) -> bool:
+	# 检查是否有可见的交互 UI 在鼠标下方
+	var ui_nodes = [
+		$UI/StartWaveBtn,
+		$UI/BuildMenu,
+		$UI/TowerMenu,
+	]
+	for node in ui_nodes:
+		if node and node is Control and node.visible:
+			var rect = node.get_global_rect()
+			if rect.has_point(mouse_pos):
+				return true
+	return false
 
 func _handle_left_click(click_pos: Vector2) -> void:
 	# 如果正在放置塔
