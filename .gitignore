@@ -1,0 +1,29 @@
+# Godot
+.godot/
+*.import
+*.translation
+export/
+export_presets.cfg
+
+# Godot 4 editor data
+/**/.godot/
+
+# Build artifacts
+*.exe
+*.pck
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI generated assets (keep tracking prompt history, not images)
+ai_assets/generated/*.png
+ai_assets/generated/*.jpg
+ai_assets/generated/*.webp
+
+# IDE
+.vscode/
+.idea/
+*.sln
+*.csproj

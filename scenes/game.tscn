@@ -1,0 +1,174 @@
+[gd_scene load_steps=6 format=3 uid="uid://game_main"]
+
+[ext_resource type="Script" path="res://scripts/game_manager.gd" id="1_gm"]
+[ext_resource type="Script" path="res://scripts/wave_manager.gd" id="2_wm"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="3_hud"]
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_gm")
+
+[node name="Map" type="Node2D" parent="."]
+
+[node name="EnemyPath" type="Path2D" parent="Map"]
+curve = SubResource("Curve2D_game")
+
+[node name="BuildPositions" type="Node2D" parent="Map"]
+
+[node name="BP1" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(180, 320)
+[node name="BP2" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(320, 240)
+[node name="BP3" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(480, 320)
+[node name="BP4" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(640, 240)
+[node name="BP5" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(180, 480)
+[node name="BP6" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(320, 400)
+[node name="BP7" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(480, 480)
+[node name="BP8" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(640, 400)
+[node name="BP9" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(800, 320)
+[node name="BP10" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
+position = Vector2(950, 240)
+
+[node name="WaveManager" type="Node" parent="."]
+script = ExtResource("2_wm")
+enemy_path = NodePath("../Map/EnemyPath")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="Control" parent="UI"]
+layout_mode = 0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("3_hud")
+
+[node name="CrystalLabel" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 220.0
+offset_bottom = 50.0
+text = "水晶: 200"
+
+[node name="LivesLabel" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 55.0
+offset_right = 220.0
+offset_bottom = 85.0
+text = "生命: 20"
+
+[node name="WaveLabel" type="Label" parent="UI/HUD"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 90.0
+offset_right = 220.0
+offset_bottom = 120.0
+text = "波次: 0/0"
+
+[node name="BuildMenu" type="Control" parent="UI"]
+visible = false
+layout_mode = 0
+
+[node name="BtnProbability" type="Button" parent="UI/BuildMenu"]
+layout_mode = 0
+offset_left = -65.0
+offset_top = -85.0
+offset_right = 65.0
+offset_bottom = -55.0
+text = "概率波塔 [100]"
+
+[node name="BtnObserver" type="Button" parent="UI/BuildMenu"]
+layout_mode = 0
+offset_left = -65.0
+offset_top = -45.0
+offset_right = 65.0
+offset_bottom = -15.0
+text = "观测者塔 [120]"
+
+[node name="BtnQuarkTrap" type="Button" parent="UI/BuildMenu"]
+layout_mode = 0
+offset_left = -65.0
+offset_top = -5.0
+offset_right = 65.0
+offset_bottom = 25.0
+text = "虚粒子陷阱 [80]"
+
+[node name="TowerMenu" type="Control" parent="UI"]
+visible = false
+layout_mode = 0
+
+[node name="BtnUpgrade" type="Button" parent="UI/TowerMenu"]
+layout_mode = 0
+offset_left = -50.0
+offset_top = -55.0
+offset_right = 50.0
+offset_bottom = -25.0
+text = "升级"
+
+[node name="BtnSell" type="Button" parent="UI/TowerMenu"]
+layout_mode = 0
+offset_left = -50.0
+offset_top = -15.0
+offset_right = 50.0
+offset_bottom = 15.0
+text = "出售"
+
+[node name="StartWaveBtn" type="Button" parent="UI"]
+layout_mode = 0
+offset_left = 1100.0
+offset_top = 20.0
+offset_right = 1260.0
+offset_bottom = 60.0
+text = "开始波次"
+
+[node name="SpeedLabel" type="Label" parent="UI"]
+layout_mode = 0
+offset_left = 1100.0
+offset_top = 70.0
+offset_right = 1250.0
+offset_bottom = 95.0
+text = "速度: 1x"
+
+[node name="VictoryLabel" type="Label" parent="UI"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -120.0
+offset_top = -40.0
+offset_right = 120.0
+offset_bottom = 40.0
+text = "胜利！"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DefeatLabel" type="Label" parent="UI"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -120.0
+offset_top = -40.0
+offset_right = 120.0
+offset_bottom = 40.0
+text = "失败……"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[sub_resource type="Curve2D" id="Curve2D_game"]
+_data = {
+"points": PackedVector2Array(0, 400, 0, 0, 0, 0, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 200, 200, 0, 0, 0, 0, 0, 0, 200, 560, 0, 0, 0, 0, 0, 0, 500, 560, 0, 0, 0, 0, 0, 0, 500, 200, 0, 0, 0, 0, 0, 0, 700, 200, 0, 0, 0, 0, 0, 0, 700, 400, 0, 0, 0, 0, 0, 0, 900, 400, 0, 0, 0, 0, 0, 0, 900, 560, 0, 0, 0, 0, 0, 0, 1100, 560, 0, 0, 0, 0, 0, 0, 1280, 400, 0, 0, 0, 0, 0, 0)
+}
