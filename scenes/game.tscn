@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://game_main"]
+[gd_scene load_steps=5 format=3 uid="uid://game_main"]
 
 [ext_resource type="Script" path="res://scripts/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" path="res://scripts/wave_manager.gd" id="2_wm"]
@@ -10,7 +10,6 @@ script = ExtResource("1_gm")
 [node name="Map" type="Node2D" parent="."]
 
 [node name="EnemyPath" type="Path2D" parent="Map"]
-curve = SubResource("Curve2D_game")
 
 [node name="BuildPositions" type="Node2D" parent="Map"]
 
@@ -37,7 +36,7 @@ position = Vector2(950, 240)
 
 [node name="WaveManager" type="Node" parent="."]
 script = ExtResource("2_wm")
-enemy_path = NodePath("../Map/EnemyPath")
+enemy_path_node = NodePath("../Map/EnemyPath")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -75,49 +74,57 @@ text = "波次: 0/0"
 [node name="BuildMenu" type="Control" parent="UI"]
 visible = false
 layout_mode = 0
-
-[node name="BtnProbability" type="Button" parent="UI/BuildMenu"]
-layout_mode = 0
 offset_left = -65.0
 offset_top = -85.0
 offset_right = 65.0
-offset_bottom = -55.0
+offset_bottom = 25.0
+
+[node name="BtnProbability" type="Button" parent="UI/BuildMenu"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 130.0
+offset_bottom = 30.0
 text = "概率波塔 [100]"
 
 [node name="BtnObserver" type="Button" parent="UI/BuildMenu"]
 layout_mode = 0
-offset_left = -65.0
-offset_top = -45.0
-offset_right = 65.0
-offset_bottom = -15.0
+offset_left = 0.0
+offset_top = 40.0
+offset_right = 130.0
+offset_bottom = 70.0
 text = "观测者塔 [120]"
 
 [node name="BtnQuarkTrap" type="Button" parent="UI/BuildMenu"]
 layout_mode = 0
-offset_left = -65.0
-offset_top = -5.0
-offset_right = 65.0
-offset_bottom = 25.0
+offset_left = 0.0
+offset_top = 80.0
+offset_right = 130.0
+offset_bottom = 110.0
 text = "虚粒子陷阱 [80]"
 
 [node name="TowerMenu" type="Control" parent="UI"]
 visible = false
 layout_mode = 0
-
-[node name="BtnUpgrade" type="Button" parent="UI/TowerMenu"]
-layout_mode = 0
 offset_left = -50.0
 offset_top = -55.0
 offset_right = 50.0
-offset_bottom = -25.0
+offset_bottom = 15.0
+
+[node name="BtnUpgrade" type="Button" parent="UI/TowerMenu"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 100.0
+offset_bottom = 30.0
 text = "升级"
 
 [node name="BtnSell" type="Button" parent="UI/TowerMenu"]
 layout_mode = 0
-offset_left = -50.0
-offset_top = -15.0
-offset_right = 50.0
-offset_bottom = 15.0
+offset_left = 0.0
+offset_top = 40.0
+offset_right = 100.0
+offset_bottom = 70.0
 text = "出售"
 
 [node name="StartWaveBtn" type="Button" parent="UI"]
@@ -127,14 +134,6 @@ offset_top = 20.0
 offset_right = 1260.0
 offset_bottom = 60.0
 text = "开始波次"
-
-[node name="SpeedLabel" type="Label" parent="UI"]
-layout_mode = 0
-offset_left = 1100.0
-offset_top = 70.0
-offset_right = 1250.0
-offset_bottom = 95.0
-text = "速度: 1x"
 
 [node name="VictoryLabel" type="Label" parent="UI"]
 visible = false
@@ -167,8 +166,3 @@ offset_bottom = 40.0
 text = "失败……"
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[sub_resource type="Curve2D" id="Curve2D_game"]
-_data = {
-"points": PackedVector2Array(0, 400, 0, 0, 0, 0, 0, 0, 0, 400, 0, 0, 0, 0, 0, 0, 200, 200, 0, 0, 0, 0, 0, 0, 200, 560, 0, 0, 0, 0, 0, 0, 500, 560, 0, 0, 0, 0, 0, 0, 500, 200, 0, 0, 0, 0, 0, 0, 700, 200, 0, 0, 0, 0, 0, 0, 700, 400, 0, 0, 0, 0, 0, 0, 900, 400, 0, 0, 0, 0, 0, 0, 900, 560, 0, 0, 0, 0, 0, 0, 1100, 560, 0, 0, 0, 0, 0, 0, 1280, 400, 0, 0, 0, 0, 0, 0)
-}

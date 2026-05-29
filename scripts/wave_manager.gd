@@ -22,8 +22,8 @@ var current_spawn_entry: Dictionary = {}
 var current_spawn_count: int = 0
 
 # 引用
-@export var enemy_parent: NodePath          # 敌人放置的父节点
-@export var enemy_path: Path2D              # 敌人跟随的路径
+@export var enemy_path_node: NodePath          # 敌人Path2D的路径
+var enemy_path: Path2D = null                  # 运行时解析
 @export var spawn_to_path_delay: float = 0.1
 
 signal wave_started(wave_index: int)
@@ -31,6 +31,9 @@ signal wave_completed(wave_index: int)
 signal all_waves_finished()
 
 func _ready() -> void:
+	# 解析导出路径到实际节点
+	if enemy_path_node:
+		enemy_path = get_node(enemy_path_node) as Path2D
 	wave_delay_timer = wave_delay
 
 func _process(delta: float) -> void:
@@ -116,7 +119,12 @@ func _spawn_one_enemy() -> void:
 	# 程序化创建敌人：PathFollow2D + 脚本
 	var enemy = PathFollow2D.new()
 	enemy.set_script(enemy_script)
-	enemy_path.add_child(enemy)
+	if enemy_path:
+		enemy_path.add_child(enemy)
+	else:
+		push_error("enemy_path 未设置！")
+		enemy.queue_free()
+		return
 
 	current_spawn_count += 1
 

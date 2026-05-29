@@ -42,10 +42,32 @@ var level_1_waves = [
 
 func _ready() -> void:
 	GameState.reset()
+	_setup_enemy_path()
 	_setup_buildable_positions()
 	_setup_ui_connections()
 	_setup_signals()
 	wave_manager.load_wave_data(level_1_waves)
+
+func _setup_enemy_path() -> void:
+	# 程序化创建敌人行进曲线
+	var curve = Curve2D.new()
+	# 定义路径拐点: (x, y)
+	var waypoints = [
+		Vector2(0, 400),
+		Vector2(200, 200),
+		Vector2(200, 560),
+		Vector2(500, 560),
+		Vector2(500, 200),
+		Vector2(700, 200),
+		Vector2(700, 400),
+		Vector2(900, 400),
+		Vector2(900, 560),
+		Vector2(1100, 560),
+		Vector2(1280, 400),
+	]
+	for wp in waypoints:
+		curve.add_point(wp, Vector2.ZERO, Vector2.ZERO)
+	enemy_path.curve = curve
 
 func _setup_buildable_positions() -> void:
 	var markers = get_tree().get_nodes_in_group("build_position")
