@@ -4,7 +4,7 @@
 extends Node
 
 # 当前游戏状态
-var crystals: int = 200          # 能量水晶（局内货币）
+var crystals: int = 100000         # 能量水晶（局内货币）- 测试用
 var lives: int = 20              # 生命值
 var current_wave: int = 0        # 当前波次
 var total_waves: int = 0         # 总波次数
@@ -28,7 +28,7 @@ func _ready() -> void:
 	reset()
 
 func reset() -> void:
-	crystals = 200
+	crystals = 100000  # 测试用，后期改回 200
 	lives = 20
 	current_wave = 0
 	total_waves = 0

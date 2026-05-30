@@ -1,25 +1,25 @@
-# 虚粒子陷阱 - 纪元一
-# 放置在地面，敌人触碰引爆范围伤害，短暂冷却后可再次触发
+# A3 - 范围爆炸塔（原虚粒子陷阱）
 class_name QuarkTrap
 extends TowerBase
 
-var explosion_damage: float = 25.0
+var explosion_damage: float = 3.0
+var explosion_radius: float = 80.0
 var has_exploded: bool = false
-var cooldown_after_explosion: float = 3.0
+var cooldown_after_explosion: float = 2.0
 var cooldown_timer: float = 0.0
 
 func _ready() -> void:
-	tower_name = "虚粒子陷阱"
-	description = "敌人触碰时引爆，造成范围伤害。短暂冷却后可再次触发。"
-	build_cost = 80
+	tower_name = "A3"
+	description = "敌人靠近时范围爆炸"
+	build_cost = 20
 	attack_damage = 0.0
 	attack_speed = 0.0
-	attack_range = 60.0
-	upgrade_cost = 60
+	attack_range = explosion_radius
+	upgrade_cost = 25
+	tower_color = Color(0.7, 0.25, 0.15, 0.8)  # 暗红
 	super()
 
 func _process(delta: float) -> void:
-	super(delta)
 	if not placed or GameState.game_over or GameState.game_paused:
 		return
 
@@ -29,31 +29,27 @@ func _process(delta: float) -> void:
 			has_exploded = false
 		return
 
-	# 检测触碰
-	var bodies = range_indicator.get_overlapping_bodies()
-	for body in bodies:
-		var enemy = body as EnemyBase
-		if enemy and not enemy.is_dead:
-			_explode()
-			break
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy is EnemyBase and not enemy.is_dead:
+			if global_position.distance_to(enemy.global_position) <= explosion_radius:
+				_explode()
+				break
 
 func _try_attack() -> void:
-	pass  # 陷阱不主动攻击
+	pass
 
 func _explode() -> void:
 	has_exploded = true
 	cooldown_timer = cooldown_after_explosion
-	var bodies = range_indicator.get_overlapping_bodies()
-	for body in bodies:
-		var enemy = body as EnemyBase
-		if enemy and not enemy.is_dead:
-			enemy.take_damage(explosion_damage)
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy is EnemyBase and not enemy.is_dead:
+			if global_position.distance_to(enemy.global_position) <= explosion_radius:
+				enemy.take_damage(explosion_damage)
 
 func upgrade() -> bool:
 	if not super():
 		return false
 	match level:
-		2: explosion_damage = 35.0; cooldown_after_explosion = 2.5
-		3: explosion_damage = 50.0; cooldown_after_explosion = 2.0
-	_setup_range()
+		2: explosion_damage = 5.0; cooldown_after_explosion = 1.5
+		3: explosion_damage = 8.0; cooldown_after_explosion = 1.0
 	return true

@@ -1,46 +1,22 @@
-[gd_scene load_steps=6 format=3 uid="uid://game_main"]
+[gd_scene load_steps=5 format=3 uid="uid://game_main"]
 
 [ext_resource type="Script" path="res://scripts/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" path="res://scripts/wave_manager.gd" id="2_wm"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="3_hud"]
-[ext_resource type="Script" path="res://scripts/map_debug.gd" id="4_md"]
+[ext_resource type="Script" path="res://scripts/game_grid.gd" id="4_gm"]
 
 [node name="Game" type="Node2D"]
 script = ExtResource("1_gm")
 
-[node name="Map" type="Node2D" parent="."]
+[node name="GameGrid" type="Node2D" parent="." groups=["grid_map"]]
+script = ExtResource("4_gm")
 
-[node name="EnemyPath" type="Path2D" parent="Map"]
-
-[node name="MapDebug" type="Node2D" parent="Map"]
-script = ExtResource("4_md")
-
-[node name="BuildPositions" type="Node2D" parent="Map"]
-
-[node name="BP1" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(180, 320)
-[node name="BP2" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(320, 240)
-[node name="BP3" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(480, 320)
-[node name="BP4" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(640, 240)
-[node name="BP5" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(180, 480)
-[node name="BP6" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(320, 400)
-[node name="BP7" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(480, 480)
-[node name="BP8" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(640, 400)
-[node name="BP9" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(800, 320)
-[node name="BP10" type="Node2D" parent="Map/BuildPositions" groups=["build_position"]]
-position = Vector2(950, 240)
+[node name="Enemies" type="Node2D" parent="."]
 
 [node name="WaveManager" type="Node" parent="."]
 script = ExtResource("2_wm")
-enemy_path_node = NodePath("../Map/EnemyPath")
+enemy_container = NodePath("../Enemies")
+spawn_world_pos = Vector2(136, 72)
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -49,6 +25,7 @@ layout_mode = 0
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 script = ExtResource("3_hud")
 
 [node name="CrystalLabel" type="Label" parent="UI/HUD"]
@@ -89,7 +66,7 @@ offset_left = 0.0
 offset_top = 0.0
 offset_right = 130.0
 offset_bottom = 30.0
-text = "概率波塔 [100]"
+text = "A1 攻击塔 [10]"
 
 [node name="BtnObserver" type="Button" parent="UI/BuildMenu"]
 layout_mode = 0
@@ -97,7 +74,7 @@ offset_left = 0.0
 offset_top = 40.0
 offset_right = 130.0
 offset_bottom = 70.0
-text = "观测者塔 [120]"
+text = "A2 减速塔 [15]"
 
 [node name="BtnQuarkTrap" type="Button" parent="UI/BuildMenu"]
 layout_mode = 0
@@ -105,7 +82,7 @@ offset_left = 0.0
 offset_top = 80.0
 offset_right = 130.0
 offset_bottom = 110.0
-text = "虚粒子陷阱 [80]"
+text = "A3 爆炸塔 [20]"
 
 [node name="TowerMenu" type="Control" parent="UI"]
 visible = false

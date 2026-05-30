@@ -5,9 +5,10 @@ extends EnemyBase
 
 func _ready() -> void:
 	enemy_name = "自由电子"
-	max_health = 20.0
-	speed = 200.0
+	max_health = 10.0
+	speed = 180.0
 	armor = 0.0
-	reward_crystals = 10
+	reward_crystals = 3
 	damage_to_base = 1
+	add_to_group("enemy")
 	super()

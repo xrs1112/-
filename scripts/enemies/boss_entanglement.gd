@@ -9,12 +9,13 @@ var resurrecting: bool = false
 
 func _ready() -> void:
 	enemy_name = "量子纠缠对"
-	max_health = 300.0
-	speed = 80.0
+	max_health = 10.0
+	speed = 70.0
 	armor = 0.2
-	reward_crystals = 200
+	reward_crystals = 50
 	damage_to_base = 5
 	shared_health = max_health
+	add_to_group("enemy")
 	super()
 
 func take_damage(damage: float, is_dot: bool = false) -> void:

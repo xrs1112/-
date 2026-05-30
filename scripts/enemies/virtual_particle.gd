@@ -10,12 +10,13 @@ var is_blinking: bool = false
 
 func _ready() -> void:
 	enemy_name = "虚粒子"
-	max_health = 30.0
-	speed = 120.0
+	max_health = 10.0
+	speed = 90.0
 	armor = 0.0
-	reward_crystals = 15
+	reward_crystals = 5
 	damage_to_base = 1
 	blink_timer = blink_interval
+	add_to_group("enemy")
 	super()
 
 func _process(delta: float) -> void:
