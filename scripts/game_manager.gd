@@ -24,13 +24,37 @@ var tower_scripts: Dictionary = {
 var selected_tower_type: String = ""
 var selected_tower: TowerBase = null
 
-# 第一关波次数据
+# 波次数据（15波，5个层级递进）
 var level_1_waves = [
-	[["res://scripts/enemies/virtual_particle.gd", 8, 1.5]],
-	[["res://scripts/enemies/virtual_particle.gd", 6, 1.2], ["res://scripts/enemies/free_electron.gd", 4, 1.2]],
-	[["res://scripts/enemies/proton_cluster.gd", 3, 3.0]],
-	[["res://scripts/enemies/virtual_particle.gd", 4, 1.0], ["res://scripts/enemies/free_electron.gd", 3, 1.0], ["res://scripts/enemies/proton_cluster.gd", 2, 2.0]],
-	[["res://scripts/enemies/free_electron.gd", 15, 0.5]],
+	# 波 1-3: T1 基础
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6,  "interval": 1.5, "tier": 1}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 1.3, "tier": 1}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 10, "interval": 1.2, "tier": 1}],
+	# 波 4-6: T1+T2 混搭
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6,  "interval": 1.2, "tier": 1},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 2.0, "tier": 2}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.0, "tier": 1},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.5, "tier": 2}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 1.0, "tier": 2}],
+	# 波 7-9: T2+T3 混搭
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.2, "tier": 2},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 2.0, "tier": 3}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.0, "tier": 2},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.5, "tier": 3}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6,  "interval": 1.3, "tier": 3}],
+	# 波 10-12: T3+T4 混搭
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.2, "tier": 3},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.5, "tier": 4}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.0, "tier": 3},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.5, "tier": 4}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.3, "tier": 4}],
+	# 波 13-14: T4+T5 混搭
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.2, "tier": 4},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.5, "tier": 5}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 1.0, "tier": 4},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 2.0, "tier": 5}],
+	# 波 15: T5 Boss 波
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 2.0, "tier": 5}],
 ]
 
 func _ready() -> void:
@@ -41,6 +65,8 @@ func _ready() -> void:
 
 func _setup_ui_connections() -> void:
 	$UI/StartWaveBtn.pressed.connect(_on_start_wave)
+	$UI/RestartBtn.pressed.connect(_on_restart)
+	$UI/HPBtn.pressed.connect(_on_toggle_hp)
 	$UI/BuildMenu/BtnProbability.pressed.connect(func(): _on_tower_selected("probability"))
 	$UI/BuildMenu/BtnObserver.pressed.connect(func(): _on_tower_selected("observer"))
 	$UI/BuildMenu/BtnQuarkTrap.pressed.connect(func(): _on_tower_selected("quark_trap"))
@@ -111,29 +137,32 @@ func _try_place_tower(cell: Vector2i) -> void:
 	if not script:
 		return
 
-	# 创建塔节点
+	# 创建塔节点（先不入树，读取默认值检查）
 	var tower = Node2D.new()
 	tower.set_script(script)
 	if not tower is TowerBase:
 		tower.queue_free()
 		return
 
+	# 先入树触发 _ready() 让 build_cost 等属性正确初始化
+	add_child(tower)
+	
+	# 现在检查费用
 	if not GameState.spend_crystals(tower.build_cost):
 		tower.queue_free()
 		return
 
-	# 尝试放置
+	# 尝试放置到网格
 	if not grid_map.place_tower(cell, tower):
+		GameState.add_crystals(tower.build_cost)  # 退款
 		tower.queue_free()
 		return
 
 	tower.position = grid_map.cell_to_world(cell)
 	tower.placed = true
 	tower.grid_cell = cell
-	add_child(tower)
 
 	selected_tower_type = ""
-	# 通知所有敌人重新寻路
 	_recalculate_all_enemy_paths()
 
 func _select_tower(tower: TowerBase) -> void:
@@ -152,7 +181,7 @@ func _on_upgrade_tower() -> void:
 
 func _on_sell_tower() -> void:
 	if selected_tower:
-		GameState.add_crystals(selected_tower.build_cost / 2)
+		GameState.add_crystals(selected_tower.get_sell_value())
 		grid_map.remove_tower(selected_tower.grid_cell)
 		selected_tower.queue_free()
 		_recalculate_all_enemy_paths()
@@ -177,7 +206,18 @@ func _on_start_wave() -> void:
 	$UI/StartWaveBtn.disabled = true
 	wave_manager.start_wave()
 
+func _on_restart() -> void:
+	get_tree().reload_current_scene()
+
+func _on_toggle_hp() -> void:
+	GameState.show_hp_numbers = not GameState.show_hp_numbers
+	$UI/HPBtn.text = "血量: " + ("开" if GameState.show_hp_numbers else "关")
+	# 刷新所有敌人显示
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		enemy.queue_redraw()
+
 func _on_all_waves_done() -> void:
+	$UI/StartWaveBtn.text = "全部完成"
 	$UI/StartWaveBtn.text = "全部完成"
 
 func _on_wave_ready() -> void:

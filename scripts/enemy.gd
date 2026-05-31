@@ -103,6 +103,7 @@ func take_damage(damage: float, is_dot: bool = false) -> void:
 		return
 	var actual_damage = damage * (1.0 - armor)
 	current_health -= actual_damage
+	queue_redraw()
 	if current_health <= 0:
 		die()
 
@@ -158,11 +159,15 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, radius, color)
 	draw_circle(Vector2.ZERO, radius, Color.WHITE, false, 1.0)
 
-	# 血条
-	if current_health < max_health:
-		var bar_width = radius * 2.5
-		var bar_height = 3.0
-		var bar_y = -radius - 6
-		draw_rect(Rect2(-bar_width / 2, bar_y, bar_width, bar_height), Color.BLACK, false, 0.5)
-		var hp_ratio = current_health / max_health
-		draw_rect(Rect2(-bar_width / 2, bar_y, bar_width * hp_ratio, bar_height), Color.GREEN)
+	# 血条（始终显示）
+	var bar_width = radius * 2.5
+	var bar_height = 3.0
+	var bar_y = -radius - 10
+	var hp_ratio = current_health / max_health
+	draw_rect(Rect2(-bar_width / 2, bar_y, bar_width, bar_height), Color(0.3, 0.1, 0.1))
+	draw_rect(Rect2(-bar_width / 2, bar_y, bar_width * hp_ratio, bar_height), Color.RED if hp_ratio < 0.3 else Color.GREEN)
+
+	# 血量数字
+	if GameState.show_hp_numbers:
+		var hp_text = "%d/%d" % [max(0, ceil(current_health)), max_health]
+		draw_string(ThemeDB.fallback_font, Vector2(-16, bar_y - 4), hp_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10)

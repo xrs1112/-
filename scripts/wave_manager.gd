@@ -86,9 +86,10 @@ func _start_next_wave() -> void:
 	spawn_queue.clear()
 	for group in wave_entry:
 		spawn_queue.append({
-			"path": group[0],
-			"count": group[1],
-			"interval": group[2]
+			"path": group["path"],
+			"count": group["count"],
+			"interval": group["interval"],
+			"tier": group.get("tier", 1)
 		})
 	_advance_spawn_queue()
 
@@ -120,6 +121,10 @@ func _spawn_one_enemy() -> void:
 	if not enemy is EnemyBase:
 		enemy.queue_free()
 		return
+
+	# 设置层级
+	if "tier" in current_spawn_entry:
+		enemy.set("tier", current_spawn_entry["tier"])
 
 	# 设置位置到起点
 	enemy.global_position = spawn_world_pos

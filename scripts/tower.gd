@@ -22,6 +22,7 @@ var current_target = null
 var placed: bool = false
 var grid_cell: Vector2i = Vector2i(-1, -1)
 var tower_color: Color = Color.WHITE
+var total_invested: int = 0  # 累计投入（建造+升级费用）
 
 # 信号
 signal tower_upgraded(tower: TowerBase)
@@ -29,6 +30,7 @@ signal tower_sold(tower: TowerBase)
 
 func _ready() -> void:
 	attack_timer = 0.0
+	total_invested = build_cost  # 初始投入 = 建造费用
 	_setup_visual()
 
 func _setup_visual() -> void:
@@ -91,6 +93,7 @@ func upgrade() -> bool:
 	if not GameState.spend_crystals(upgrade_cost):
 		return false
 
+	total_invested += upgrade_cost
 	level += 1
 	attack_damage += upgrade_damage_bonus
 	attack_speed += upgrade_speed_bonus
@@ -106,6 +109,11 @@ func upgrade() -> bool:
 
 func get_upgrade_cost() -> int:
 	return upgrade_cost
+
+# 出售价值：总投入的 50% + 每级 +5%
+func get_sell_value() -> int:
+	var pct = 0.5 + (level - 1) * 0.05  # Lv1=50%, Lv2=55%, Lv3=60%
+	return int(total_invested * pct)
 
 func show_range() -> void:
 	queue_redraw()

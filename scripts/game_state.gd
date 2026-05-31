@@ -11,6 +11,7 @@ var total_waves: int = 0         # 总波次数
 var wave_active: bool = false    # 波次是否进行中
 var game_paused: bool = false
 var game_over: bool = false
+var show_hp_numbers: bool = true  # 血条数字显示
 
 # 纪元信息
 var current_era: int = 1         # 当前纪元 (1=量子微观)
@@ -28,7 +29,7 @@ func _ready() -> void:
 	reset()
 
 func reset() -> void:
-	crystals = 100000  # 测试用，后期改回 200
+	crystals = 100
 	lives = 20
 	current_wave = 0
 	total_waves = 0
