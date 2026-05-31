@@ -22,6 +22,9 @@ var path: Array[Vector2i] = []             # 当前路径（网格坐标列表�
 var path_index: int = 0
 var target_world_pos: Vector2
 var grid_map = null
+var route_random_seed: int = 0
+var route_random_strength: float = 0.35
+var route_max_length_factor: float = 1.2
 
 # 减速/DOT 状态
 var slowed: bool = false
@@ -39,8 +42,12 @@ func _ready() -> void:
 	# 基础视觉大小
 	queue_redraw()
 
-func setup(grid) -> void:
+func setup(grid, random_seed: int = 0) -> void:
 	grid_map = grid
+	if random_seed == 0:
+		route_random_seed = randi()
+	else:
+		route_random_seed = random_seed
 	_recalculate_path()
 
 func _process(delta: float) -> void:
@@ -89,7 +96,15 @@ func _recalculate_path() -> void:
 		return
 	# 找到当前最近的网格位置
 	var current_cell = grid_map.world_to_cell(global_position)
-	path = grid_map.find_path(current_cell, Vector2i(21, 12))
+	var new_path: Array[Vector2i] = []
+	if grid_map.has_method("find_varied_path"):
+		new_path = grid_map.find_varied_path(current_cell, Vector2i(21, 12), route_random_seed, route_random_strength, route_max_length_factor)
+	else:
+		new_path = grid_map.find_path(current_cell, Vector2i(21, 12))
+	# 找不到路时保留旧路径，不把敌人误判为到达终点/消失。
+	if new_path.is_empty():
+		return
+	path = new_path
 	path_index = 0
 	# 跳过第一个节点（当前位置）
 	if path.size() > 0:

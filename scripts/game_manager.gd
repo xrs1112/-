@@ -11,6 +11,8 @@ var tower_scripts: Dictionary = {
 	"quark_trap": preload("res://scripts/towers/quark_trap.gd"),
 }
 
+const TOWER_SELL_DELAY: float = 2.0
+
 # 节点引用
 @onready var grid_map = $GameGrid
 @onready var wave_manager: WaveManager = $WaveManager
@@ -24,6 +26,7 @@ var tower_scripts: Dictionary = {
 var selected_tower_type: String = ""
 var selected_tower: TowerBase = null
 var next_level_btn: Button = null
+var current_speed_scale: float = 1.0
 
 # 波次数据（10波，5个层级递进）
 var level_1_waves = [
@@ -48,23 +51,23 @@ var level_1_waves = [
 var level_maps = [
 	{
 		"name": "第1关：裂谷回廊",
-		"blocked_rects": [Rect2i(4, 0, 18, 2), Rect2i(2, 2, 5, 4), Rect2i(7, 6, 7, 3), Rect2i(14, 3, 6, 4), Rect2i(18, 8, 3, 4)],
+		"blocked_rects": [Rect2i(4, 0, 18, 2), Rect2i(2, 2, 5, 4), Rect2i(7, 6, 3, 3), Rect2i(12, 6, 2, 3), Rect2i(14, 3, 6, 4), Rect2i(18, 8, 3, 4), Rect2i(20, 12, 1, 1)],
 	},
 	{
 		"name": "第2关：双门石阵",
-		"blocked_rects": [Rect2i(3, 0, 2, 5), Rect2i(7, 3, 3, 7), Rect2i(13, 0, 3, 5), Rect2i(16, 7, 3, 5), Rect2i(1, 8, 5, 2), Rect2i(10, 10, 4, 2)],
+		"blocked_rects": [Rect2i(3, 0, 2, 5), Rect2i(7, 3, 3, 7), Rect2i(13, 0, 3, 5), Rect2i(16, 7, 3, 5), Rect2i(1, 8, 5, 2), Rect2i(10, 10, 4, 2), Rect2i(20, 12, 1, 1)],
 	},
 	{
 		"name": "第3关：环形祭坛",
-		"blocked_rects": [Rect2i(5, 2, 3, 3), Rect2i(9, 2, 4, 2), Rect2i(14, 2, 3, 3), Rect2i(5, 7, 3, 3), Rect2i(10, 6, 3, 3), Rect2i(15, 7, 3, 3), Rect2i(2, 4, 2, 5), Rect2i(19, 4, 2, 5)],
+		"blocked_rects": [Rect2i(5, 2, 3, 3), Rect2i(9, 2, 4, 2), Rect2i(14, 2, 3, 3), Rect2i(5, 7, 3, 3), Rect2i(10, 6, 3, 3), Rect2i(15, 7, 3, 3), Rect2i(2, 4, 2, 5), Rect2i(19, 4, 2, 5), Rect2i(20, 12, 1, 1)],
 	},
 	{
 		"name": "第4关：峡谷断层",
-		"blocked_rects": [Rect2i(3, 1, 6, 2), Rect2i(6, 4, 6, 2), Rect2i(9, 7, 6, 2), Rect2i(12, 10, 6, 2), Rect2i(15, 2, 2, 5), Rect2i(1, 7, 4, 2)],
+		"blocked_rects": [Rect2i(3, 1, 6, 2), Rect2i(6, 4, 6, 2), Rect2i(9, 7, 6, 2), Rect2i(12, 10, 6, 2), Rect2i(15, 2, 2, 5), Rect2i(1, 7, 4, 2), Rect2i(20, 12, 1, 1)],
 	},
 	{
 		"name": "第5关：终末迷阵",
-		"blocked_rects": [Rect2i(2, 1, 4, 3), Rect2i(7, 0, 3, 5), Rect2i(11, 2, 5, 2), Rect2i(17, 1, 3, 4), Rect2i(3, 6, 5, 2), Rect2i(9, 5, 3, 5), Rect2i(13, 8, 5, 2), Rect2i(18, 6, 2, 5), Rect2i(5, 10, 3, 2)],
+		"blocked_rects": [Rect2i(2, 1, 4, 3), Rect2i(7, 0, 3, 5), Rect2i(11, 2, 5, 2), Rect2i(17, 1, 3, 4), Rect2i(3, 6, 5, 2), Rect2i(9, 5, 3, 5), Rect2i(13, 8, 5, 2), Rect2i(18, 6, 2, 5), Rect2i(5, 10, 3, 2), Rect2i(20, 12, 1, 1)],
 	},
 ]
 
@@ -80,6 +83,9 @@ func _setup_ui_connections() -> void:
 	$UI/StartWaveBtn.pressed.connect(_on_start_wave)
 	$UI/RestartBtn.pressed.connect(_on_restart)
 	$UI/HPBtn.pressed.connect(_on_toggle_hp)
+	$UI/PauseBtn.pressed.connect(_on_toggle_pause)
+	$UI/Speed2Btn.pressed.connect(func(): _toggle_speed(2.0))
+	$UI/Speed4Btn.pressed.connect(func(): _toggle_speed(4.0))
 	$UI/BuildMenu/BtnProbability.pressed.connect(func(): _on_tower_selected("probability"))
 	$UI/BuildMenu/BtnObserver.pressed.connect(func(): _on_tower_selected("observer"))
 	$UI/BuildMenu/BtnQuarkTrap.pressed.connect(func(): _on_tower_selected("quark_trap"))
@@ -120,6 +126,8 @@ func _start_current_level() -> void:
 	$UI/StartWaveBtn.disabled = false
 	$UI/StartWaveBtn.text = "开始波次"
 	$UI/HPBtn.text = "血量: " + ("开" if GameState.show_hp_numbers else "关")
+	_set_pause(false)
+	_set_speed(1.0)
 
 func _setup_map_for_current_level() -> void:
 	var map_index = clampi(GameState.current_level - 1, 0, level_maps.size() - 1)
@@ -153,7 +161,7 @@ func _input(event: InputEvent) -> void:
 		_cancel_all()
 
 func _is_mouse_over_ui(mouse_pos: Vector2) -> bool:
-	var ui_nodes = [$UI/StartWaveBtn, $UI/BuildMenu, $UI/TowerMenu, next_level_btn]
+	var ui_nodes = [$UI/StartWaveBtn, $UI/RestartBtn, $UI/HPBtn, $UI/PauseBtn, $UI/Speed2Btn, $UI/Speed4Btn, $UI/BuildMenu, $UI/TowerMenu, next_level_btn]
 	for node in ui_nodes:
 		if node and node is Control and node.visible:
 			if node.get_global_rect().has_point(mouse_pos):
@@ -171,7 +179,10 @@ func _handle_click(click_pos: Vector2) -> void:
 	# 检查是否点击了已有塔
 	var existing_tower = grid_map.get_tower_at(cell)
 	if existing_tower:
-		_select_tower(existing_tower)
+		if _is_tower_selling(existing_tower):
+			_cancel_all()
+		else:
+			_select_tower(existing_tower)
 		return
 
 	# 点击空地 → 显示建造菜单
@@ -192,6 +203,8 @@ func _on_tower_selected(type: String) -> void:
 
 func _try_place_tower(cell: Vector2i) -> void:
 	if not grid_map.is_cell_empty(cell):
+		return
+	if _is_enemy_in_cell(cell):
 		return
 
 	var script = tower_scripts.get(selected_tower_type)
@@ -226,6 +239,13 @@ func _try_place_tower(cell: Vector2i) -> void:
 	selected_tower_type = ""
 	_recalculate_all_enemy_paths()
 
+func _is_enemy_in_cell(cell: Vector2i) -> bool:
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy is EnemyBase and not enemy.is_dead:
+			if grid_map.world_to_cell(enemy.global_position) == cell:
+				return true
+	return false
+
 func _select_tower(tower: TowerBase) -> void:
 	_cancel_all()
 	selected_tower = tower
@@ -234,18 +254,36 @@ func _select_tower(tower: TowerBase) -> void:
 	tower.show_range()
 
 func _on_upgrade_tower() -> void:
-	if selected_tower and selected_tower.level < 3:
+	if selected_tower and selected_tower.level < 3 and not _is_tower_selling(selected_tower):
 		# TowerBase.upgrade() 内部负责扣费，避免重复扣水晶。
 		selected_tower.upgrade()
 	_cancel_all()
 
 func _on_sell_tower() -> void:
-	if selected_tower:
-		GameState.add_crystals(selected_tower.get_sell_value())
-		grid_map.remove_tower(selected_tower.grid_cell)
-		selected_tower.queue_free()
-		_recalculate_all_enemy_paths()
+	if selected_tower and not _is_tower_selling(selected_tower):
+		_start_sell_tower(selected_tower)
 	_cancel_all()
+
+func _start_sell_tower(tower: TowerBase) -> void:
+	var sell_value = tower.get_sell_value()
+	tower.set_meta("selling", true)
+	tower.placed = false  # 拆除中停止攻击，但仍占用 grid_map，继续阻挡道路。
+	tower.hide_range()
+	tower.modulate.a = 0.45
+	get_tree().create_timer(TOWER_SELL_DELAY).timeout.connect(func(): _finish_sell_tower(tower, sell_value))
+
+func _finish_sell_tower(tower: TowerBase, sell_value: int) -> void:
+	if not is_instance_valid(tower):
+		return
+	if grid_map.get_tower_at(tower.grid_cell) != tower:
+		return
+	GameState.add_crystals(sell_value)
+	grid_map.remove_tower(tower.grid_cell)
+	tower.queue_free()
+	_recalculate_all_enemy_paths()
+
+func _is_tower_selling(tower: TowerBase) -> bool:
+	return tower.get_meta("selling", false)
 
 func _cancel_all() -> void:
 	selected_tower_type = ""
@@ -267,6 +305,7 @@ func _on_start_wave() -> void:
 	$UI/StartWaveBtn.text = "提前开始下一波"
 
 func _on_restart() -> void:
+	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
 
 func _on_toggle_hp() -> void:
@@ -275,6 +314,25 @@ func _on_toggle_hp() -> void:
 	# 刷新所有敌人显示
 	for enemy in get_tree().get_nodes_in_group("enemy"):
 		enemy.queue_redraw()
+
+func _on_toggle_pause() -> void:
+	_set_pause(not GameState.game_paused)
+
+func _set_pause(paused: bool) -> void:
+	GameState.game_paused = paused
+	$UI/PauseBtn.text = "继续" if paused else "暂停"
+
+func _toggle_speed(speed: float) -> void:
+	if is_equal_approx(current_speed_scale, speed):
+		_set_speed(1.0)
+	else:
+		_set_speed(speed)
+
+func _set_speed(speed: float) -> void:
+	current_speed_scale = speed
+	Engine.time_scale = speed
+	$UI/Speed2Btn.text = "2倍速*" if is_equal_approx(speed, 2.0) else "2倍速"
+	$UI/Speed4Btn.text = "4倍速*" if is_equal_approx(speed, 4.0) else "4倍速"
 
 func _on_all_waves_done() -> void:
 	$UI/StartWaveBtn.disabled = true

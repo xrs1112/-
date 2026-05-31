@@ -115,7 +115,7 @@ func _spawn_one(spawn: Dictionary) -> void:
 
 	var grid_map = get_tree().get_first_node_in_group("grid_map")
 	if grid_map and grid_map.has_method("find_path"):
-		enemy.setup(grid_map)
+		enemy.setup(grid_map, randi())
 
 	var parent = get_node_or_null(enemy_container) if not enemy_container.is_empty() else get_parent()
 	if parent == null:

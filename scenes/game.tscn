@@ -110,27 +110,51 @@ text = "出售"
 
 [node name="StartWaveBtn" type="Button" parent="UI"]
 layout_mode = 0
-offset_left = 1100.0
-offset_top = 20.0
-offset_right = 1260.0
-offset_bottom = 60.0
+offset_left = 900.0
+offset_top = 18.0
+offset_right = 1040.0
+offset_bottom = 56.0
 text = "开始波次"
 
 [node name="RestartBtn" type="Button" parent="UI"]
 layout_mode = 0
-offset_left = 1100.0
-offset_top = 70.0
-offset_right = 1260.0
-offset_bottom = 110.0
+offset_left = 1050.0
+offset_top = 18.0
+offset_right = 1190.0
+offset_bottom = 56.0
 text = "重新开始"
 
 [node name="HPBtn" type="Button" parent="UI"]
 layout_mode = 0
-offset_left = 1100.0
-offset_top = 120.0
-offset_right = 1260.0
-offset_bottom = 160.0
+offset_left = 20.0
+offset_top = 682.0
+offset_right = 112.0
+offset_bottom = 716.0
 text = "血量: 开"
+
+[node name="PauseBtn" type="Button" parent="UI"]
+layout_mode = 0
+offset_left = 122.0
+offset_top = 682.0
+offset_right = 214.0
+offset_bottom = 716.0
+text = "暂停"
+
+[node name="Speed2Btn" type="Button" parent="UI"]
+layout_mode = 0
+offset_left = 224.0
+offset_top = 682.0
+offset_right = 316.0
+offset_bottom = 716.0
+text = "2倍速"
+
+[node name="Speed4Btn" type="Button" parent="UI"]
+layout_mode = 0
+offset_left = 326.0
+offset_top = 682.0
+offset_right = 418.0
+offset_bottom = 716.0
+text = "4倍速"
 
 [node name="VictoryLabel" type="Label" parent="UI"]
 visible = false

@@ -149,9 +149,35 @@ func get_tower_at(cell: Vector2i) -> TowerBase:
 # === A* 寻路 ===
 
 func find_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
+	return _find_path_internal(from_cell, to_cell)
+
+func find_varied_path(from_cell: Vector2i, to_cell: Vector2i, random_seed: int, random_strength: float = 0.35, max_length_factor: float = 1.2) -> Array[Vector2i]:
+	# 先计算标准最短路，作为长度上限和兜底路径。
+	var shortest_path = find_path(from_cell, to_cell)
+	if shortest_path.is_empty():
+		return []
+
+	# 给每个可通行格子分配一个很小的随机附加代价。
+	# A* 仍然偏向最短路，但在多条近似最短路线中会出现个体差异。
+	var noise = _build_route_noise(random_seed, random_strength)
+	var varied_path = _find_path_internal(from_cell, to_cell, noise)
+	if varied_path.is_empty():
+		return shortest_path
+
+	# 严格限制随机路线长度，避免敌人因为随机性绕过远路破坏平衡。
+	var max_cells = int(ceil(shortest_path.size() * max_length_factor))
+	if varied_path.size() <= max_cells:
+		return varied_path
+	return shortest_path
+
+func has_path(from_cell: Vector2i, to_cell: Vector2i) -> bool:
+	return not find_path(from_cell, to_cell).is_empty()
+
+func _find_path_internal(from_cell: Vector2i, to_cell: Vector2i, extra_cost: Dictionary = {}) -> Array[Vector2i]:
 	if not is_valid_cell(from_cell) or not is_valid_cell(to_cell):
 		return []
-	if not is_cell_walkable(from_cell) or not is_cell_walkable(to_cell):
+	# 终点必须可走；起点允许临时处于不可走格，避免敌人脚下建塔等边界情况导致空路径。
+	if not is_cell_walkable(to_cell):
 		return []
 
 	# A* 算法
@@ -182,7 +208,8 @@ func find_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 			if not is_cell_walkable(neighbor):
 				continue
 
-			var tentative_g = g_score[current] + 1
+			var step_cost = 1.0 + float(extra_cost.get(neighbor, 0.0))
+			var tentative_g = g_score[current] + step_cost
 			if tentative_g < g_score[neighbor]:
 				came_from[neighbor] = current
 				g_score[neighbor] = tentative_g
@@ -193,8 +220,16 @@ func find_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
 	# 无路径
 	return []
 
-func has_path(from_cell: Vector2i, to_cell: Vector2i) -> bool:
-	return not find_path(from_cell, to_cell).is_empty()
+func _build_route_noise(random_seed: int, random_strength: float) -> Dictionary:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = random_seed
+	var noise: Dictionary = {}
+	for row in range(GRID_ROWS):
+		for col in range(GRID_COLS):
+			var cell = Vector2i(col, row)
+			if is_cell_walkable(cell):
+				noise[cell] = rng.randf_range(0.0, random_strength)
+	return noise
 
 func _heuristic(a: Vector2i, b: Vector2i) -> float:
 	return absi(a.x - b.x) + absi(a.y - b.y)  # 曼哈顿距离
