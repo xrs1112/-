@@ -169,5 +169,5 @@ func _draw() -> void:
 
 	# 血量数字
 	if GameState.show_hp_numbers:
-		var hp_text = "%d/%d" % [max(0, ceil(current_health)), max_health]
+		var hp_text = "%d/%d" % [max(0, int(ceil(current_health))), int(max_health)]
 		draw_string(ThemeDB.fallback_font, Vector2(-16, bar_y - 4), hp_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10)

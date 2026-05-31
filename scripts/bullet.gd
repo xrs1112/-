@@ -9,6 +9,7 @@ var target: Node2D = null
 var color: Color = Color.YELLOW
 
 func _ready() -> void:
+	add_to_group("bullet")
 	queue_redraw()
 
 func setup(tgt: Node2D, dmg: float, spd: float, clr: Color) -> void:

@@ -23,6 +23,7 @@ var placed: bool = false
 var grid_cell: Vector2i = Vector2i(-1, -1)
 var tower_color: Color = Color.WHITE
 var total_invested: int = 0  # 累计投入（建造+升级费用）
+var range_visible: bool = false
 
 # 信号
 signal tower_upgraded(tower: TowerBase)
@@ -116,17 +117,19 @@ func get_sell_value() -> int:
 	return int(total_invested * pct)
 
 func show_range() -> void:
+	range_visible = true
 	queue_redraw()
 
 func hide_range() -> void:
+	range_visible = false
 	queue_redraw()
 
 func _refresh_visual() -> void:
 	_setup_visual()
 
 func _draw() -> void:
-	# 绘制攻击范围圆
-	if placed:
+	# 只在选中塔时绘制攻击范围圆
+	if placed and range_visible:
 		draw_circle(Vector2.ZERO, attack_range, Color(1.0, 1.0, 1.0, 0.1), false, 1.0)
 
 	# 绘制方向指示

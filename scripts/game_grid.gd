@@ -13,8 +13,9 @@ const GRID_OFFSET: Vector2 = Vector2(112, 48)  # 居中偏移
 static var START_CELL = Vector2i(0, 0)
 static var GOAL_CELL = Vector2i(21, 12)
 
-# 网格数据：0=空, 1=塔, 2=起点, 3=终点
+# 网格数据：0=空, 1=塔, 2=起点, 3=终点, 4=封禁区
 var grid: Array = []
+var blocked_rects: Array = []
 
 # 塔引用
 var tower_at_cell: Dictionary = {}   # Vector2i → TowerBase
@@ -36,11 +37,30 @@ func _init_grid() -> void:
 		for col in range(GRID_COLS):
 			row_data.append(0)
 		grid.append(row_data)
-	# 标记起点和终点
+
+	# 应用当前关卡封禁区：不可通过，也不可建塔。
+	for rect in blocked_rects:
+		for y in range(rect.position.y, rect.position.y + rect.size.y):
+			for x in range(rect.position.x, rect.position.x + rect.size.x):
+				var cell = Vector2i(x, y)
+				if is_valid_cell(cell):
+					grid[y][x] = 4
+
+	# 标记起点和终点。即使设计失误覆盖到封禁区，也保证入口/出口可用。
 	grid[START_CELL.y][START_CELL.x] = 2
 	grid[GOAL_CELL.y][GOAL_CELL.x] = 3
 
+func load_map(new_blocked_rects: Array) -> void:
+	blocked_rects = new_blocked_rects
+	tower_at_cell.clear()
+	_init_grid()
+	grid_changed.emit()
+	queue_redraw()
+
 func _draw() -> void:
+	if grid.is_empty():
+		return
+
 	# 绘制网格线
 	for row in range(GRID_ROWS + 1):
 		var y = GRID_OFFSET.y + row * CELL_SIZE
@@ -48,6 +68,14 @@ func _draw() -> void:
 	for col in range(GRID_COLS + 1):
 		var x = GRID_OFFSET.x + col * CELL_SIZE
 		draw_line(Vector2(x, GRID_OFFSET.y), Vector2(x, GRID_OFFSET.y + GRID_ROWS * CELL_SIZE), Color(0.2, 0.2, 0.3, 0.4), 1.0)
+
+	# 绘制封禁区
+	for row in range(GRID_ROWS):
+		for col in range(GRID_COLS):
+			if grid[row][col] == 4:
+				var pos = cell_to_world(Vector2i(col, row))
+				draw_rect(Rect2(pos - Vector2(22, 22), Vector2(44, 44)), Color(0.08, 0.08, 0.1, 0.78))
+				draw_rect(Rect2(pos - Vector2(22, 22), Vector2(44, 44)), Color(0.45, 0.45, 0.5, 0.45), false, 1.0)
 
 	# 绘制起点和终点
 	var start_pos = cell_to_world(START_CELL)
@@ -65,9 +93,9 @@ func _draw() -> void:
 
 func world_to_cell(world_pos: Vector2) -> Vector2i:
 	var local = world_pos - GRID_OFFSET
-	var col = int(local.x / CELL_SIZE)
-	var row = int(local.y / CELL_SIZE)
-	return Vector2i(clampi(col, 0, GRID_COLS - 1), clampi(row, 0, GRID_ROWS - 1))
+	var col = floori(local.x / CELL_SIZE)
+	var row = floori(local.y / CELL_SIZE)
+	return Vector2i(col, row)
 
 func cell_to_world(cell: Vector2i) -> Vector2:
 	return GRID_OFFSET + Vector2(cell.x * CELL_SIZE + CELL_SIZE / 2, cell.y * CELL_SIZE + CELL_SIZE / 2)
@@ -103,6 +131,7 @@ func place_tower(cell: Vector2i, tower: TowerBase) -> bool:
 		return false
 
 	tower_at_cell[cell] = tower
+	tower_placed.emit(cell, tower)
 	grid_changed.emit()
 	queue_redraw()
 	return true
@@ -120,6 +149,11 @@ func get_tower_at(cell: Vector2i) -> TowerBase:
 # === A* 寻路 ===
 
 func find_path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
+	if not is_valid_cell(from_cell) or not is_valid_cell(to_cell):
+		return []
+	if not is_cell_walkable(from_cell) or not is_cell_walkable(to_cell):
+		return []
+
 	# A* 算法
 	var open_set = [from_cell]
 	var came_from: Dictionary = {}

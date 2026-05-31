@@ -36,6 +36,12 @@ func reset() -> void:
 	wave_active = false
 	game_paused = false
 	game_over = false
+	show_hp_numbers = true
+
+	# 场景重载时 HUD 子节点会先于 GameManager _ready，重置后必须主动刷新 UI。
+	crystals_changed.emit(crystals)
+	lives_changed.emit(lives)
+	wave_changed.emit(current_wave)
 
 func add_crystals(amount: int) -> void:
 	crystals += amount
@@ -49,10 +55,9 @@ func spend_crystals(amount: int) -> bool:
 	return false
 
 func lose_life(amount: int = 1) -> void:
-	lives -= amount
+	lives = max(0, lives - amount)
 	lives_changed.emit(lives)
 	if lives <= 0:
-		lives = 0
 		trigger_game_over(false)
 
 func trigger_game_over(won: bool) -> void:

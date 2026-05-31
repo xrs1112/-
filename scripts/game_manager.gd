@@ -23,47 +23,60 @@ var tower_scripts: Dictionary = {
 # 状态
 var selected_tower_type: String = ""
 var selected_tower: TowerBase = null
+var next_level_btn: Button = null
 
-# 波次数据（15波，5个层级递进）
+# 波次数据（10波，5个层级递进）
 var level_1_waves = [
-	# 波 1-3: T1 基础
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6,  "interval": 1.5, "tier": 1}],
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 1.3, "tier": 1}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 10, "interval": 1.2, "tier": 1}],
-	# 波 4-6: T1+T2 混搭
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6,  "interval": 1.2, "tier": 1},
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.2, "tier": 1},
 	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 2.0, "tier": 2}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.0, "tier": 1},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.5, "tier": 2}],
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 1.0, "tier": 2}],
-	# 波 7-9: T2+T3 混搭
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.2, "tier": 2},
 	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 2.0, "tier": 3}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.0, "tier": 2},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.5, "tier": 3}],
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6,  "interval": 1.3, "tier": 3}],
-	# 波 10-12: T3+T4 混搭
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.2, "tier": 3},
 	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.5, "tier": 4}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.0, "tier": 3},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.5, "tier": 4}],
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.3, "tier": 4}],
-	# 波 13-14: T4+T5 混搭
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.2, "tier": 4},
 	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.5, "tier": 5}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 1.0, "tier": 4},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 2.0, "tier": 5}],
-	# 波 15: T5 Boss 波
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 2.0, "tier": 5}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 2.0, "tier": 5}],
+]
+
+# 5 个关卡地图：blocked_rects 中的矩形格子为封禁区，不可通过、不可建塔。
+# 坐标基于 22×13 网格，入口固定 (0,0)，出口固定 (21,12)。
+var level_maps = [
+	{
+		"name": "第1关：裂谷回廊",
+		"blocked_rects": [Rect2i(4, 0, 18, 2), Rect2i(2, 2, 5, 4), Rect2i(7, 6, 7, 3), Rect2i(14, 3, 6, 4), Rect2i(18, 8, 3, 4)],
+	},
+	{
+		"name": "第2关：双门石阵",
+		"blocked_rects": [Rect2i(3, 0, 2, 5), Rect2i(7, 3, 3, 7), Rect2i(13, 0, 3, 5), Rect2i(16, 7, 3, 5), Rect2i(1, 8, 5, 2), Rect2i(10, 10, 4, 2)],
+	},
+	{
+		"name": "第3关：环形祭坛",
+		"blocked_rects": [Rect2i(5, 2, 3, 3), Rect2i(9, 2, 4, 2), Rect2i(14, 2, 3, 3), Rect2i(5, 7, 3, 3), Rect2i(10, 6, 3, 3), Rect2i(15, 7, 3, 3), Rect2i(2, 4, 2, 5), Rect2i(19, 4, 2, 5)],
+	},
+	{
+		"name": "第4关：峡谷断层",
+		"blocked_rects": [Rect2i(3, 1, 6, 2), Rect2i(6, 4, 6, 2), Rect2i(9, 7, 6, 2), Rect2i(12, 10, 6, 2), Rect2i(15, 2, 2, 5), Rect2i(1, 7, 4, 2)],
+	},
+	{
+		"name": "第5关：终末迷阵",
+		"blocked_rects": [Rect2i(2, 1, 4, 3), Rect2i(7, 0, 3, 5), Rect2i(11, 2, 5, 2), Rect2i(17, 1, 3, 4), Rect2i(3, 6, 5, 2), Rect2i(9, 5, 3, 5), Rect2i(13, 8, 5, 2), Rect2i(18, 6, 2, 5), Rect2i(5, 10, 3, 2)],
+	},
 ]
 
 func _ready() -> void:
-	GameState.reset()
+	if GameState.current_level < 1 or GameState.current_level > level_maps.size():
+		GameState.current_level = 1
 	_setup_ui_connections()
 	_setup_signals()
-	wave_manager.load_wave_data(level_1_waves)
+	_start_current_level()
 
 func _setup_ui_connections() -> void:
+	_ensure_next_level_button()
 	$UI/StartWaveBtn.pressed.connect(_on_start_wave)
 	$UI/RestartBtn.pressed.connect(_on_restart)
 	$UI/HPBtn.pressed.connect(_on_toggle_hp)
@@ -72,12 +85,60 @@ func _setup_ui_connections() -> void:
 	$UI/BuildMenu/BtnQuarkTrap.pressed.connect(func(): _on_tower_selected("quark_trap"))
 	$UI/TowerMenu/BtnUpgrade.pressed.connect(_on_upgrade_tower)
 	$UI/TowerMenu/BtnSell.pressed.connect(_on_sell_tower)
+	next_level_btn.pressed.connect(_on_next_level)
+
+func _ensure_next_level_button() -> void:
+	next_level_btn = $UI.get_node_or_null("NextLevelBtn") as Button
+	if next_level_btn:
+		return
+	next_level_btn = Button.new()
+	next_level_btn.name = "NextLevelBtn"
+	next_level_btn.visible = false
+	next_level_btn.text = "挑战下一关"
+	next_level_btn.offset_left = 560
+	next_level_btn.offset_top = 430
+	next_level_btn.offset_right = 720
+	next_level_btn.offset_bottom = 475
+	$UI.add_child(next_level_btn)
 
 func _setup_signals() -> void:
 	GameState.game_won.connect(_on_victory)
 	GameState.game_lost.connect(_on_defeat)
-	wave_manager.all_waves_finished.connect(_on_all_waves_done)
+	wave_manager.all_waves_finished_signal.connect(_on_all_waves_done)
 	wave_manager.wave_ready.connect(_on_wave_ready)
+	wave_manager.countdown_changed.connect(_on_countdown_changed)
+
+func _start_current_level() -> void:
+	GameState.reset()
+	_clear_level_runtime()
+	_setup_map_for_current_level()
+	wave_manager.load_wave_data(level_1_waves)
+
+	victory_label.visible = false
+	defeat_label.visible = false
+	next_level_btn.visible = false
+	$UI/StartWaveBtn.disabled = false
+	$UI/StartWaveBtn.text = "开始波次"
+	$UI/HPBtn.text = "血量: " + ("开" if GameState.show_hp_numbers else "关")
+
+func _setup_map_for_current_level() -> void:
+	var map_index = clampi(GameState.current_level - 1, 0, level_maps.size() - 1)
+	GameState.current_level = map_index + 1
+	var map_data = level_maps[map_index]
+	grid_map.load_map(map_data["blocked_rects"])
+	victory_label.text = "%s 通过！" % map_data["name"]
+
+func _clear_level_runtime() -> void:
+	_cancel_all()
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(enemy):
+			enemy.queue_free()
+	for bullet in get_tree().get_nodes_in_group("bullet"):
+		if is_instance_valid(bullet):
+			bullet.queue_free()
+	for tower in grid_map.tower_at_cell.values():
+		if is_instance_valid(tower):
+			tower.queue_free()
 
 func _input(event: InputEvent) -> void:
 	if GameState.game_over:
@@ -92,7 +153,7 @@ func _input(event: InputEvent) -> void:
 		_cancel_all()
 
 func _is_mouse_over_ui(mouse_pos: Vector2) -> bool:
-	var ui_nodes = [$UI/StartWaveBtn, $UI/BuildMenu, $UI/TowerMenu]
+	var ui_nodes = [$UI/StartWaveBtn, $UI/BuildMenu, $UI/TowerMenu, next_level_btn]
 	for node in ui_nodes:
 		if node and node is Control and node.visible:
 			if node.get_global_rect().has_point(mouse_pos):
@@ -174,9 +235,8 @@ func _select_tower(tower: TowerBase) -> void:
 
 func _on_upgrade_tower() -> void:
 	if selected_tower and selected_tower.level < 3:
-		var cost = selected_tower.get_upgrade_cost()
-		if GameState.spend_crystals(cost):
-			selected_tower.upgrade()
+		# TowerBase.upgrade() 内部负责扣费，避免重复扣水晶。
+		selected_tower.upgrade()
 	_cancel_all()
 
 func _on_sell_tower() -> void:
@@ -201,10 +261,10 @@ func _recalculate_all_enemy_paths() -> void:
 			enemy.recalculate_path()
 
 func _on_start_wave() -> void:
-	if GameState.wave_active or GameState.game_over:
+	if GameState.game_over:
 		return
-	$UI/StartWaveBtn.disabled = true
 	wave_manager.start_wave()
+	$UI/StartWaveBtn.text = "提前开始下一波"
 
 func _on_restart() -> void:
 	get_tree().reload_current_scene()
@@ -217,12 +277,29 @@ func _on_toggle_hp() -> void:
 		enemy.queue_redraw()
 
 func _on_all_waves_done() -> void:
-	$UI/StartWaveBtn.text = "全部完成"
-	$UI/StartWaveBtn.text = "全部完成"
+	$UI/StartWaveBtn.disabled = true
+	if GameState.current_level < level_maps.size():
+		$UI/StartWaveBtn.text = "本关完成"
+		next_level_btn.text = "挑战第%d关" % (GameState.current_level + 1)
+		next_level_btn.visible = true
+	else:
+		$UI/StartWaveBtn.text = "全部完成"
+		victory_label.text = "5个关卡全部完成！"
+		next_level_btn.visible = false
+	GameState.trigger_game_over(true)
+
+func _on_next_level() -> void:
+	if GameState.current_level >= level_maps.size():
+		return
+	GameState.current_level += 1
+	_start_current_level()
 
 func _on_wave_ready() -> void:
 	$UI/StartWaveBtn.disabled = false
 	$UI/StartWaveBtn.text = "开始波次"
+
+func _on_countdown_changed(remaining: float) -> void:
+	$UI/StartWaveBtn.text = "下波 %ds" % int(ceil(max(remaining, 0.0)))
 
 func _on_victory() -> void:
 	victory_label.visible = true

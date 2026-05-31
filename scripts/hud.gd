@@ -11,6 +11,7 @@ func _ready() -> void:
 	
 	update_crystals(GameState.crystals)
 	update_lives(GameState.lives)
+	update_wave(GameState.current_wave)
 	GameState.crystals_changed.connect(update_crystals)
 	GameState.lives_changed.connect(update_lives)
 	GameState.wave_changed.connect(update_wave)

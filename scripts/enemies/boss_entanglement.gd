@@ -23,10 +23,14 @@ func take_damage(damage: float, is_dot: bool = false) -> void:
 		return
 
 	var actual_damage = damage * (1.0 - armor)
-	shared_health -= actual_damage
+	shared_health = max(0.0, shared_health - actual_damage)
+	current_health = shared_health
+	queue_redraw()
 
 	if linked_boss and not linked_boss.is_dead:
 		linked_boss.shared_health = shared_health
+		linked_boss.current_health = shared_health
+		linked_boss.queue_redraw()
 		if shared_health <= 0:
 			linked_boss._check_death()
 
@@ -45,7 +49,11 @@ func _try_resurrect() -> void:
 	if linked_boss and not linked_boss.is_dead and linked_boss.shared_health > 0:
 		resurrecting = false
 		shared_health = max_health
+		current_health = shared_health
 		linked_boss.shared_health = shared_health
+		linked_boss.current_health = shared_health
+		queue_redraw()
+		linked_boss.queue_redraw()
 		modulate.a = 1.0
 	else:
 		die_boss()
