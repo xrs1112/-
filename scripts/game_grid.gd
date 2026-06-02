@@ -4,10 +4,10 @@ class_name GameGrid
 extends Node2D
 
 # 网格参数
-const CELL_SIZE: int = 48
+const CELL_SIZE: int = 42
 const GRID_COLS: int = 22
 const GRID_ROWS: int = 13
-const GRID_OFFSET: Vector2 = Vector2(112, 48)  # 居中偏移
+const GRID_OFFSET: Vector2 = Vector2(272, 72)  # 右侧主舞台，左侧留给信息舱
 
 # 起点和终点（网格坐标）
 static var START_CELL = Vector2i(0, 0)
@@ -81,10 +81,11 @@ func _draw() -> void:
 	# 绘制已放置的塔
 	for cell in tower_at_cell:
 		var pos = cell_to_world(cell)
-		draw_circle(pos, 22.0, Color(0.26, 0.35, 0.8, 0.18))
-		draw_circle(pos, 20.0, Color(0.7, 0.85, 1.0, 0.38), false, 1.5)
+		draw_circle(pos, CELL_SIZE * 0.42, Color(0.26, 0.35, 0.8, 0.18))
+		draw_circle(pos, CELL_SIZE * 0.38, Color(0.7, 0.85, 1.0, 0.38), false, 1.5)
 
 func _draw_microcosm_backdrop() -> void:
+	draw_rect(Rect2(0, 0, 1280, 720), Color(0.015, 0.018, 0.035, 1.0))
 	draw_rect(MAP_RECT.grow(18), Color(0.025, 0.03, 0.08, 0.96))
 	draw_rect(MAP_RECT.grow(18), Color(0.08, 0.18, 0.26, 0.65), false, 2.0)
 
@@ -111,18 +112,18 @@ func _draw_walkable_field() -> void:
 			var pos = cell_to_world(cell)
 			draw_circle(pos, 3.0, Color(0.28, 0.75, 0.95, 0.18))
 			if (row + col) % 3 == 0:
-				draw_circle(pos, 18.0, Color(0.15, 0.5, 0.7, 0.055), false, 1.0)
+				draw_circle(pos, CELL_SIZE * 0.34, Color(0.15, 0.5, 0.7, 0.055), false, 1.0)
 
 func _draw_blocked_cell(pos: Vector2, cell: Vector2i) -> void:
 	var phase = float((cell.x * 13 + cell.y * 17) % 11) / 11.0
-	var radius = 18.0 + phase * 4.0
+	var radius = CELL_SIZE * (0.34 + phase * 0.08)
 	draw_circle(pos, radius, Color(0.05, 0.045, 0.09, 0.86))
 	draw_circle(pos + Vector2(-5, -4), radius * 0.42, Color(0.18, 0.12, 0.28, 0.58))
 	draw_circle(pos, radius, Color(0.55, 0.38, 0.8, 0.42), false, 1.2)
 
 func _draw_gate(pos: Vector2, color: Color, label: String) -> void:
-	draw_circle(pos, 22.0, Color(color.r, color.g, color.b, 0.14))
-	draw_circle(pos, 16.0, color, false, 2.4)
+	draw_circle(pos, CELL_SIZE * 0.42, Color(color.r, color.g, color.b, 0.14))
+	draw_circle(pos, CELL_SIZE * 0.32, color, false, 2.4)
 	draw_circle(pos, 6.0, Color(color.r, color.g, color.b, 0.6))
 	draw_string(ThemeDB.fallback_font, pos + Vector2(-12, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)
 
@@ -144,6 +145,14 @@ func is_cell_empty(cell: Vector2i) -> bool:
 	if not is_valid_cell(cell):
 		return false
 	return grid[cell.y][cell.x] == 0
+
+func would_keep_path_if_blocked(cell: Vector2i) -> bool:
+	if not is_cell_empty(cell):
+		return false
+	grid[cell.y][cell.x] = 1
+	var path_exists = has_path(START_CELL, GOAL_CELL)
+	grid[cell.y][cell.x] = 0
+	return path_exists
 
 func is_cell_walkable(cell: Vector2i) -> bool:
 	if not is_valid_cell(cell):

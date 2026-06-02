@@ -3,6 +3,8 @@
 
 extends Node
 
+const TOTAL_LEVELS: int = 5
+
 # 当前游戏状态
 var crystals: int = 100000         # 能量水晶（局内货币）- 测试用
 var lives: int = 20              # 生命值
@@ -16,6 +18,7 @@ var show_hp_numbers: bool = true  # 血条数字显示
 # 纪元信息
 var current_era: int = 1         # 当前纪元 (1=量子微观)
 var current_level: int = 1       # 当前关卡
+var unlocked_level: int = TOTAL_LEVELS  # 试玩阶段先全部开放；后续可改为 1 并接本地存档。
 
 # 信号
 signal crystals_changed(new_amount: int)
@@ -24,6 +27,7 @@ signal wave_changed(wave: int)
 signal game_won()
 signal game_lost()
 signal era_changed(era: int)
+signal level_unlocked(level: int)
 
 func _ready() -> void:
 	reset()
@@ -69,3 +73,15 @@ func trigger_game_over(won: bool) -> void:
 		game_won.emit()
 	else:
 		game_lost.emit()
+
+func select_level(level: int) -> void:
+	current_level = clampi(level, 1, TOTAL_LEVELS)
+
+func is_level_unlocked(level: int) -> bool:
+	return level >= 1 and level <= unlocked_level
+
+func unlock_next_level(completed_level: int) -> void:
+	var next_level = clampi(completed_level + 1, 1, TOTAL_LEVELS)
+	if next_level > unlocked_level:
+		unlocked_level = next_level
+		level_unlocked.emit(unlocked_level)

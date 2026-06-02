@@ -4,6 +4,10 @@
 class_name GameManager
 extends Node2D
 
+const COMPENDIUM_DATA = preload("res://scripts/compendium_data.gd")
+const COMPENDIUM_PREVIEW = preload("res://scripts/compendium_preview.gd")
+const BUILD_GHOST = preload("res://scripts/build_ghost.gd")
+
 # 塔脚本引用
 var tower_scripts: Dictionary = {
 	"probability": preload("res://scripts/towers/probability_tower.gd"),
@@ -21,6 +25,12 @@ const TOWER_SELL_DELAY: float = 2.0
 @onready var tower_info_label: Label = $UI/TowerMenu/TowerInfoLabel
 @onready var level_label: Label = $UI/HUD/LevelLabel
 @onready var message_label: Label = $UI/MessageLabel
+@onready var result_panel: Panel = $UI/ResultPanel
+@onready var result_title: Label = $UI/ResultPanel/ResultTitle
+@onready var result_body: Label = $UI/ResultPanel/ResultBody
+@onready var result_replay_btn: Button = $UI/ResultPanel/ResultReplayBtn
+@onready var result_next_btn: Button = $UI/ResultPanel/ResultNextBtn
+@onready var result_menu_btn: Button = $UI/ResultPanel/ResultMenuBtn
 @onready var victory_label: Label = $UI/VictoryLabel
 @onready var defeat_label: Label = $UI/DefeatLabel
 @onready var enemy_container: Node2D = $Enemies
@@ -31,6 +41,15 @@ var selected_tower: TowerBase = null
 var next_level_btn: Button = null
 var current_speed_scale: float = 1.0
 var message_token: int = 0
+var pause_panel: Panel = null
+var pause_resume_btn: Button = null
+var pause_compendium_btn: Button = null
+var game_compendium_panel: Panel = null
+var game_compendium_preview: Control = null
+var game_compendium_detail_label: RichTextLabel = null
+var game_compendium_list_buttons: Array[Button] = []
+var game_compendium_category: String = "towers"
+var build_ghost: Control = null
 
 # 波次数据（10波，5个层级递进）
 var level_1_waves = [
@@ -78,9 +97,44 @@ var level_maps = [
 func _ready() -> void:
 	if GameState.current_level < 1 or GameState.current_level > level_maps.size():
 		GameState.current_level = 1
+	_setup_overlay_ui()
+	_setup_build_ghost()
 	_setup_ui_connections()
+	_setup_visual_style()
 	_setup_signals()
 	_start_current_level()
+
+func _process(_delta: float) -> void:
+	_update_build_ghost()
+
+func _setup_build_ghost() -> void:
+	build_ghost = BUILD_GHOST.new()
+	build_ghost.name = "BuildGhost"
+	build_ghost.size = Vector2(GameGrid.CELL_SIZE, GameGrid.CELL_SIZE)
+	build_ghost.visible = false
+	$UI.add_child(build_ghost)
+
+func _update_build_ghost() -> void:
+	if selected_tower_type == "" or GameState.game_over or GameState.game_paused:
+		build_ghost.visible = false
+		return
+
+	var mouse_pos = get_viewport().get_mouse_position()
+	var cell = grid_map.world_to_cell(mouse_pos)
+	var cell_world = grid_map.cell_to_world(cell)
+	var can_build = _can_preview_place(cell)
+	build_ghost.visible = true
+	build_ghost.position = cell_world - build_ghost.size * 0.5
+	build_ghost.set_preview(selected_tower_type, can_build)
+
+func _can_preview_place(cell: Vector2i) -> bool:
+	if not grid_map.is_cell_empty(cell):
+		return false
+	if cell == GameGrid.START_CELL or cell == GameGrid.GOAL_CELL:
+		return false
+	if _is_enemy_in_cell(cell):
+		return false
+	return grid_map.would_keep_path_if_blocked(cell)
 
 func _setup_ui_connections() -> void:
 	_ensure_next_level_button()
@@ -90,12 +144,207 @@ func _setup_ui_connections() -> void:
 	$UI/PauseBtn.pressed.connect(_on_toggle_pause)
 	$UI/Speed2Btn.pressed.connect(func(): _toggle_speed(2.0))
 	$UI/Speed4Btn.pressed.connect(func(): _toggle_speed(4.0))
+	$UI/MainMenuBtn.pressed.connect(_on_main_menu)
 	$UI/BuildMenu/BtnProbability.pressed.connect(func(): _on_tower_selected("probability"))
 	$UI/BuildMenu/BtnObserver.pressed.connect(func(): _on_tower_selected("observer"))
 	$UI/BuildMenu/BtnQuarkTrap.pressed.connect(func(): _on_tower_selected("quark_trap"))
 	$UI/TowerMenu/BtnUpgrade.pressed.connect(_on_upgrade_tower)
 	$UI/TowerMenu/BtnSell.pressed.connect(_on_sell_tower)
+	result_replay_btn.pressed.connect(_on_restart)
+	result_next_btn.pressed.connect(_on_next_level)
+	result_menu_btn.pressed.connect(_on_main_menu)
+	pause_resume_btn.pressed.connect(func(): _set_pause(false))
+	pause_compendium_btn.pressed.connect(_show_game_compendium)
 	next_level_btn.pressed.connect(_on_next_level)
+
+func _setup_visual_style() -> void:
+	_add_popup_panel(build_menu, Rect2(-8, -8, 146, 126))
+	_add_popup_panel(tower_menu, Rect2(0, 0, 260, 226))
+	for button in [
+		$UI/StartWaveBtn,
+		$UI/RestartBtn,
+		$UI/HPBtn,
+		$UI/PauseBtn,
+		$UI/Speed2Btn,
+		$UI/Speed4Btn,
+		$UI/MainMenuBtn,
+		$UI/BuildMenu/BtnProbability,
+		$UI/BuildMenu/BtnObserver,
+		$UI/BuildMenu/BtnQuarkTrap,
+		$UI/TowerMenu/BtnUpgrade,
+		$UI/TowerMenu/BtnSell,
+		result_replay_btn,
+		result_next_btn,
+		result_menu_btn,
+		pause_resume_btn,
+		pause_compendium_btn,
+		next_level_btn,
+	] + game_compendium_list_buttons:
+		_style_button(button)
+	result_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.93), Color(0.34, 0.95, 1.0, 0.66)))
+	pause_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.95), Color(0.34, 0.95, 1.0, 0.72)))
+	game_compendium_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.018, 0.055, 0.1, 0.96), Color(0.34, 0.95, 1.0, 0.72)))
+	for button in [$UI/GameCompendiumPanel/CloseBtn, $UI/GameCompendiumPanel/TowersTab, $UI/GameCompendiumPanel/EnemiesTab]:
+		_style_button(button)
+	for label in [tower_info_label, message_label, result_title, result_body, victory_label, defeat_label, $UI/PausePanel/Title, $UI/GameCompendiumPanel/Title]:
+		label.add_theme_color_override("font_color", Color(0.88, 0.98, 1.0, 0.96))
+		label.add_theme_color_override("font_shadow_color", Color(0.0, 0.15, 0.25, 0.9))
+		label.add_theme_constant_override("shadow_offset_x", 1)
+		label.add_theme_constant_override("shadow_offset_y", 1)
+	message_label.add_theme_font_size_override("font_size", 18)
+	tower_info_label.add_theme_font_size_override("font_size", 14)
+	tower_info_label.add_theme_constant_override("line_spacing", 2)
+	game_compendium_detail_label.add_theme_color_override("default_color", Color(0.88, 0.98, 1.0, 0.96))
+	game_compendium_detail_label.add_theme_font_size_override("normal_font_size", 15)
+	victory_label.add_theme_font_size_override("font_size", 28)
+	defeat_label.add_theme_font_size_override("font_size", 28)
+
+func _add_popup_panel(menu: Control, rect: Rect2) -> void:
+	if menu.get_node_or_null("SkinPanel"):
+		return
+	var panel = Panel.new()
+	panel.name = "SkinPanel"
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.position = rect.position
+	panel.size = rect.size
+	panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.88), Color(0.28, 0.9, 1.0, 0.58)))
+	menu.add_child(panel)
+	menu.move_child(panel, 0)
+
+func _style_button(button: Button) -> void:
+	button.add_theme_stylebox_override("normal", _make_button_style(Color(0.035, 0.11, 0.18, 0.84), Color(0.24, 0.82, 1.0, 0.45)))
+	button.add_theme_stylebox_override("hover", _make_button_style(Color(0.055, 0.19, 0.29, 0.92), Color(0.55, 1.0, 0.88, 0.75)))
+	button.add_theme_stylebox_override("pressed", _make_button_style(Color(0.025, 0.08, 0.14, 0.95), Color(1.0, 0.86, 0.35, 0.85)))
+	button.add_theme_stylebox_override("disabled", _make_button_style(Color(0.035, 0.045, 0.06, 0.62), Color(0.2, 0.28, 0.34, 0.55)))
+	button.add_theme_color_override("font_color", Color(0.86, 0.96, 1.0))
+	button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 0.82))
+	button.add_theme_color_override("font_disabled_color", Color(0.52, 0.62, 0.68, 0.85))
+	button.add_theme_font_size_override("font_size", 15)
+
+func _make_button_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var style = _make_panel_style(bg, border)
+	style.set_corner_radius_all(5)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 5
+	style.content_margin_bottom = 5
+	return style
+
+func _make_panel_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(6)
+	return style
+
+func _setup_overlay_ui() -> void:
+	pause_panel = Panel.new()
+	pause_panel.name = "PausePanel"
+	pause_panel.visible = false
+	pause_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	pause_panel.set_anchors_preset(Control.PRESET_CENTER)
+	pause_panel.offset_left = -180
+	pause_panel.offset_top = -118
+	pause_panel.offset_right = 180
+	pause_panel.offset_bottom = 118
+	$UI.add_child(pause_panel)
+
+	var pause_title = Label.new()
+	pause_title.name = "Title"
+	pause_title.text = "游戏暂停"
+	pause_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pause_title.add_theme_font_size_override("font_size", 28)
+	pause_title.set_position(Vector2(24, 24))
+	pause_title.size = Vector2(312, 40)
+	pause_panel.add_child(pause_title)
+
+	pause_resume_btn = Button.new()
+	pause_resume_btn.name = "ResumeBtn"
+	pause_resume_btn.text = "继续游戏"
+	pause_resume_btn.set_position(Vector2(70, 84))
+	pause_resume_btn.size = Vector2(220, 42)
+	pause_panel.add_child(pause_resume_btn)
+
+	pause_compendium_btn = Button.new()
+	pause_compendium_btn.name = "CompendiumBtn"
+	pause_compendium_btn.text = "查看图鉴"
+	pause_compendium_btn.set_position(Vector2(70, 142))
+	pause_compendium_btn.size = Vector2(220, 42)
+	pause_panel.add_child(pause_compendium_btn)
+
+	game_compendium_panel = Panel.new()
+	game_compendium_panel.name = "GameCompendiumPanel"
+	game_compendium_panel.visible = false
+	game_compendium_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	game_compendium_panel.set_anchors_preset(Control.PRESET_CENTER)
+	game_compendium_panel.offset_left = -390
+	game_compendium_panel.offset_top = -260
+	game_compendium_panel.offset_right = 390
+	game_compendium_panel.offset_bottom = 260
+	$UI.add_child(game_compendium_panel)
+
+	var title = Label.new()
+	title.name = "Title"
+	title.text = "微观图鉴"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.set_position(Vector2(24, 22))
+	title.size = Vector2(728, 42)
+	game_compendium_panel.add_child(title)
+
+	var close_btn = Button.new()
+	close_btn.name = "CloseBtn"
+	close_btn.text = "返回"
+	close_btn.set_position(Vector2(674, 24))
+	close_btn.size = Vector2(84, 36)
+	close_btn.pressed.connect(_hide_game_compendium)
+	game_compendium_panel.add_child(close_btn)
+
+	var towers_tab = Button.new()
+	towers_tab.name = "TowersTab"
+	towers_tab.text = "防御塔"
+	towers_tab.set_position(Vector2(34, 78))
+	towers_tab.size = Vector2(112, 36)
+	towers_tab.pressed.connect(func(): _populate_game_compendium("towers"))
+	game_compendium_panel.add_child(towers_tab)
+
+	var enemies_tab = Button.new()
+	enemies_tab.name = "EnemiesTab"
+	enemies_tab.text = "敌人"
+	enemies_tab.set_position(Vector2(158, 78))
+	enemies_tab.size = Vector2(112, 36)
+	enemies_tab.pressed.connect(func(): _populate_game_compendium("enemies"))
+	game_compendium_panel.add_child(enemies_tab)
+
+	for i in range(6):
+		var button = Button.new()
+		button.name = "EntryBtn%d" % i
+		button.set_position(Vector2(34, 136 + i * 54))
+		button.size = Vector2(220, 42)
+		button.visible = false
+		var index = i
+		button.pressed.connect(func(): _select_game_compendium_entry(index))
+		game_compendium_panel.add_child(button)
+		game_compendium_list_buttons.append(button)
+
+	game_compendium_detail_label = RichTextLabel.new()
+	game_compendium_detail_label.name = "Detail"
+	game_compendium_detail_label.bbcode_enabled = false
+	game_compendium_detail_label.fit_content = false
+	game_compendium_detail_label.scroll_active = true
+	game_compendium_detail_label.selection_enabled = false
+	game_compendium_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	game_compendium_detail_label.set_position(Vector2(292, 256))
+	game_compendium_detail_label.size = Vector2(438, 240)
+	game_compendium_panel.add_child(game_compendium_detail_label)
+
+	game_compendium_preview = COMPENDIUM_PREVIEW.new()
+	game_compendium_preview.name = "Preview"
+	game_compendium_preview.set_position(Vector2(292, 86))
+	game_compendium_preview.size = Vector2(438, 150)
+	game_compendium_panel.add_child(game_compendium_preview)
+	_populate_game_compendium("towers")
 
 func _ensure_next_level_button() -> void:
 	next_level_btn = $UI.get_node_or_null("NextLevelBtn") as Button
@@ -105,10 +354,10 @@ func _ensure_next_level_button() -> void:
 	next_level_btn.name = "NextLevelBtn"
 	next_level_btn.visible = false
 	next_level_btn.text = "挑战下一关"
-	next_level_btn.offset_left = 560
-	next_level_btn.offset_top = 430
-	next_level_btn.offset_right = 720
-	next_level_btn.offset_bottom = 475
+	next_level_btn.offset_left = 42
+	next_level_btn.offset_top = 560
+	next_level_btn.offset_right = 226
+	next_level_btn.offset_bottom = 604
 	$UI.add_child(next_level_btn)
 
 func _setup_signals() -> void:
@@ -127,19 +376,24 @@ func _start_current_level() -> void:
 	victory_label.visible = false
 	defeat_label.visible = false
 	message_label.visible = false
+	pause_panel.visible = false
+	game_compendium_panel.visible = false
+	result_panel.visible = false
 	next_level_btn.visible = false
 	$UI/StartWaveBtn.disabled = false
 	$UI/StartWaveBtn.text = "开始波次"
 	$UI/HPBtn.text = "血量: " + ("开" if GameState.show_hp_numbers else "关")
 	_set_pause(false)
 	_set_speed(1.0)
+	if GameState.current_level == 1:
+		_show_message("点击微光节点建塔，右键取消，准备好后开始波次", 4.0)
 
 func _setup_map_for_current_level() -> void:
 	var map_index = clampi(GameState.current_level - 1, 0, level_maps.size() - 1)
 	GameState.current_level = map_index + 1
 	var map_data = level_maps[map_index]
 	grid_map.load_map(map_data["blocked_rects"])
-	level_label.text = "关卡: %s (%d/%d)" % [map_data["name"], GameState.current_level, level_maps.size()]
+	level_label.text = "关卡: %s\n进度: %d/%d" % [map_data["name"], GameState.current_level, level_maps.size()]
 	victory_label.text = "%s 通过！" % map_data["name"]
 
 func _clear_level_runtime() -> void:
@@ -159,19 +413,36 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if game_compendium_panel and game_compendium_panel.visible and not game_compendium_panel.get_global_rect().has_point(event.position):
+			_hide_game_compendium()
+			return
 		# 跳过 UI 区域的点击
 		if _is_mouse_over_ui(event.position):
 			return
+		if GameState.game_paused:
+			return
 		_handle_click(event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		if GameState.game_paused:
+			return
 		_cancel_all()
 
 func _is_mouse_over_ui(mouse_pos: Vector2) -> bool:
-	var ui_nodes = [$UI/StartWaveBtn, $UI/RestartBtn, $UI/HPBtn, $UI/PauseBtn, $UI/Speed2Btn, $UI/Speed4Btn, $UI/BuildMenu, $UI/TowerMenu, next_level_btn]
+	var ui_nodes = [$UI/StartWaveBtn, $UI/RestartBtn, $UI/HPBtn, $UI/PauseBtn, $UI/Speed2Btn, $UI/Speed4Btn, $UI/MainMenuBtn, $UI/BuildMenu, $UI/TowerMenu, pause_panel, game_compendium_panel, result_panel, next_level_btn]
 	for node in ui_nodes:
-		if node and node is Control and node.visible:
-			if node.get_global_rect().has_point(mouse_pos):
+		if node and node is Control:
+			if _control_tree_has_point(node, mouse_pos):
 				return true
+	return false
+
+func _control_tree_has_point(control: Control, mouse_pos: Vector2) -> bool:
+	if not control.visible:
+		return false
+	if control.get_global_rect().has_point(mouse_pos):
+		return true
+	for child in control.get_children():
+		if child is Control and _control_tree_has_point(child, mouse_pos):
+			return true
 	return false
 
 func _handle_click(click_pos: Vector2) -> void:
@@ -189,6 +460,10 @@ func _handle_click(click_pos: Vector2) -> void:
 			_cancel_all()
 		else:
 			_select_tower(existing_tower)
+		return
+
+	if selected_tower:
+		_cancel_all()
 		return
 
 	# 点击空地 → 显示建造菜单
@@ -262,16 +537,29 @@ func _select_tower(tower: TowerBase) -> void:
 	_cancel_all()
 	selected_tower = tower
 	tower_menu.visible = true
-	tower_menu.position = tower.global_position + Vector2(0, -60)
+	tower_menu.position = _fit_popup_to_view(tower.global_position + Vector2(-130, -210), tower_menu.size)
 	tower.show_range()
 	_update_tower_menu()
 
+func _fit_popup_to_view(pos: Vector2, popup_size: Vector2) -> Vector2:
+	var viewport_size = get_viewport_rect().size
+	return Vector2(
+		clampf(pos.x, 16.0, viewport_size.x - popup_size.x - 16.0),
+		clampf(pos.y, 16.0, viewport_size.y - popup_size.y - 16.0)
+	)
+
 func _on_upgrade_tower() -> void:
-	if selected_tower and selected_tower.level < 3 and not _is_tower_selling(selected_tower):
-		# TowerBase.upgrade() 内部负责扣费，避免重复扣水晶。
-		if not selected_tower.upgrade():
-			_show_message("水晶不足，需要 %d" % selected_tower.get_upgrade_cost())
-	_cancel_all()
+	if not selected_tower or _is_tower_selling(selected_tower):
+		_cancel_all()
+		return
+	if selected_tower.level >= 3:
+		_update_tower_menu()
+		return
+
+	# TowerBase.upgrade() 内部负责扣费，避免重复扣水晶。
+	if not selected_tower.upgrade():
+		_show_message("水晶不足，需要 %d" % selected_tower.get_upgrade_cost())
+	_update_tower_menu()
 
 func _on_sell_tower() -> void:
 	if selected_tower and not _is_tower_selling(selected_tower):
@@ -302,16 +590,11 @@ func _is_tower_selling(tower: TowerBase) -> bool:
 func _update_tower_menu() -> void:
 	if not selected_tower:
 		return
-	var upgrade_text = "满级" if selected_tower.level >= 3 else "升级 [%d]" % selected_tower.get_upgrade_cost()
+	var upgrade_text = "满级" if selected_tower.level >= 3 else "升级 %d" % selected_tower.get_upgrade_cost()
 	$UI/TowerMenu/BtnUpgrade.text = upgrade_text
 	$UI/TowerMenu/BtnUpgrade.disabled = selected_tower.level >= 3
-	$UI/TowerMenu/BtnSell.text = "出售 [%d]" % selected_tower.get_sell_value()
-	tower_info_label.text = "%s Lv.%d\n伤害 %.1f  射程 %d" % [
-		selected_tower.tower_name,
-		selected_tower.level,
-		selected_tower.attack_damage,
-		int(selected_tower.attack_range),
-	]
+	$UI/TowerMenu/BtnSell.text = "出售 %d" % selected_tower.get_sell_value()
+	tower_info_label.text = selected_tower.get_tower_info_text()
 
 func _show_message(text: String, duration: float = 1.4) -> void:
 	message_token += 1
@@ -327,6 +610,8 @@ func _cancel_all() -> void:
 	selected_tower_type = ""
 	build_menu.visible = false
 	tower_menu.visible = false
+	if build_ghost:
+		build_ghost.visible = false
 	if selected_tower and is_instance_valid(selected_tower):
 		selected_tower.hide_range()
 	selected_tower = null
@@ -346,6 +631,10 @@ func _on_restart() -> void:
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
 
+func _on_main_menu() -> void:
+	Engine.time_scale = 1.0
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
 func _on_toggle_hp() -> void:
 	GameState.show_hp_numbers = not GameState.show_hp_numbers
 	$UI/HPBtn.text = "血量: " + ("开" if GameState.show_hp_numbers else "关")
@@ -359,6 +648,10 @@ func _on_toggle_pause() -> void:
 func _set_pause(paused: bool) -> void:
 	GameState.game_paused = paused
 	$UI/PauseBtn.text = "继续" if paused else "暂停"
+	pause_panel.visible = paused and not GameState.game_over
+	game_compendium_panel.visible = false
+	if paused:
+		_cancel_all()
 
 func _toggle_speed(speed: float) -> void:
 	if is_equal_approx(current_speed_scale, speed):
@@ -372,15 +665,54 @@ func _set_speed(speed: float) -> void:
 	$UI/Speed2Btn.text = "2倍速*" if is_equal_approx(speed, 2.0) else "2倍速"
 	$UI/Speed4Btn.text = "4倍速*" if is_equal_approx(speed, 4.0) else "4倍速"
 
+func _show_game_compendium() -> void:
+	pause_panel.visible = false
+	game_compendium_panel.visible = true
+	_populate_game_compendium(game_compendium_category)
+
+func _hide_game_compendium() -> void:
+	game_compendium_panel.visible = false
+	if GameState.game_paused and not GameState.game_over:
+		pause_panel.visible = true
+
+func _populate_game_compendium(category: String) -> void:
+	game_compendium_category = category
+	var entries = _get_game_compendium_entries()
+	for i in range(game_compendium_list_buttons.size()):
+		var button = game_compendium_list_buttons[i]
+		if i < entries.size():
+			button.visible = true
+			button.text = entries[i]["name"]
+		else:
+			button.visible = false
+	if entries.size() > 0:
+		_select_game_compendium_entry(0)
+
+func _select_game_compendium_entry(index: int) -> void:
+	var entries = _get_game_compendium_entries()
+	if index < 0 or index >= entries.size():
+		return
+	var entry = entries[index]
+	game_compendium_preview.set_entry(game_compendium_category, entry)
+	game_compendium_detail_label.text = "%s\n%s\n\n%s\n\n%s" % [
+		entry["name"],
+		entry["role"],
+		entry["stats"],
+		entry["detail"],
+	]
+
+func _get_game_compendium_entries() -> Array[Dictionary]:
+	return COMPENDIUM_DATA.get_enemies() if game_compendium_category == "enemies" else COMPENDIUM_DATA.get_towers()
+
 func _on_all_waves_done() -> void:
 	$UI/StartWaveBtn.disabled = true
+	GameState.unlock_next_level(GameState.current_level)
 	if GameState.current_level < level_maps.size():
 		$UI/StartWaveBtn.text = "本关完成"
 		next_level_btn.text = "挑战第%d关" % (GameState.current_level + 1)
-		next_level_btn.visible = true
+		next_level_btn.visible = false
 	else:
 		$UI/StartWaveBtn.text = "全部完成"
-		victory_label.text = "5个关卡全部完成！"
 		next_level_btn.visible = false
 	GameState.trigger_game_over(true)
 
@@ -398,7 +730,41 @@ func _on_countdown_changed(remaining: float) -> void:
 	$UI/StartWaveBtn.text = "下波 %ds" % int(ceil(max(remaining, 0.0)))
 
 func _on_victory() -> void:
-	victory_label.visible = true
+	_show_result(true)
 
 func _on_defeat() -> void:
-	defeat_label.visible = true
+	_show_result(false)
+
+func _show_result(won: bool) -> void:
+	_cancel_all()
+	result_panel.visible = true
+	result_next_btn.visible = won and GameState.current_level < level_maps.size()
+	result_next_btn.disabled = not result_next_btn.visible
+	result_next_btn.text = "下一关"
+	result_replay_btn.text = "重玩本关"
+	result_menu_btn.text = "返回菜单"
+
+	var level_name := _get_current_level_name()
+	var summary := "关卡: %s\n波次: %d/%d\n生命: %d    水晶: %d" % [
+		level_name,
+		GameState.current_wave,
+		GameState.total_waves,
+		GameState.lives,
+		GameState.crystals,
+	]
+	if won:
+		result_title.add_theme_color_override("font_color", Color(0.78, 1.0, 0.9))
+		if GameState.current_level >= level_maps.size():
+			result_title.text = "微观纪元完成"
+			result_body.text = "5 个裂谷节点全部稳定。这个试玩切片已经通关。\n\n%s" % summary
+		else:
+			result_title.text = "关卡完成"
+			result_body.text = "防线稳定，下一处微观裂谷已开放。\n\n%s" % summary
+	else:
+		result_title.add_theme_color_override("font_color", Color(1.0, 0.62, 0.72))
+		result_title.text = "防线崩溃"
+		result_body.text = "奇迹之塔受损。调整塔位与波次节奏，再试一次。\n\n%s" % summary
+
+func _get_current_level_name() -> String:
+	var map_index := clampi(GameState.current_level - 1, 0, level_maps.size() - 1)
+	return str(level_maps[map_index].get("name", "第%d关" % GameState.current_level))

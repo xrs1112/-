@@ -1,4 +1,4 @@
-# A3 - 范围爆炸塔（原虚粒子陷阱）
+# 虚粒子阱 - 范围爆炸塔
 class_name QuarkTrap
 extends TowerBase
 
@@ -13,8 +13,8 @@ var shockwave_timer: float = 0.0
 var shockwave_duration: float = 0.35
 
 func _ready() -> void:
-	tower_name = "A3"
-	description = "敌人靠近时范围爆炸"
+	tower_name = "虚粒子阱"
+	description = "敌人靠近时释放范围脉冲"
 	build_cost = 20
 	attack_damage = 0.0
 	attack_speed = 0.0
@@ -24,6 +24,12 @@ func _ready() -> void:
 	super()
 
 func _process(delta: float) -> void:
+	if upgrade_flash_timer > 0.0:
+		upgrade_flash_timer -= delta
+		queue_redraw()
+	if level >= 3:
+		queue_redraw()
+
 	if shockwave_active:
 		shockwave_timer -= delta
 		if shockwave_timer <= 0:
@@ -63,9 +69,34 @@ func upgrade() -> bool:
 	if not super():
 		return false
 	match level:
-		2: explosion_damage = 5.0; cooldown_after_explosion = 1.5
-		3: explosion_damage = 8.0; cooldown_after_explosion = 1.0
+		2:
+			explosion_damage = 5.0
+			explosion_radius = 92.0
+			attack_range = explosion_radius
+			cooldown_after_explosion = 1.5
+		3:
+			explosion_damage = 8.0
+			explosion_radius = 108.0
+			attack_range = explosion_radius
+			cooldown_after_explosion = 1.0
+	queue_redraw()
 	return true
+
+func get_upgrade_preview() -> String:
+	match level:
+		1:
+			return "下级: 爆发 5.0，半径 92，冷却 1.5s"
+		2:
+			return "下级: 爆发 8.0，半径 108，冷却 1.0s"
+		_:
+			return "已满级: 高密度脉冲阱已激活"
+
+func get_stats_text() -> String:
+	return "爆发 %.1f  半径 %d\n冷却 %.1fs" % [
+		explosion_damage,
+		int(explosion_radius),
+		cooldown_after_explosion,
+	]
 
 func _draw() -> void:
 	super()
