@@ -18,6 +18,9 @@ const TOWER_SELL_DELAY: float = 2.0
 @onready var wave_manager: WaveManager = $WaveManager
 @onready var build_menu: Control = $UI/BuildMenu
 @onready var tower_menu: Control = $UI/TowerMenu
+@onready var tower_info_label: Label = $UI/TowerMenu/TowerInfoLabel
+@onready var level_label: Label = $UI/HUD/LevelLabel
+@onready var message_label: Label = $UI/MessageLabel
 @onready var victory_label: Label = $UI/VictoryLabel
 @onready var defeat_label: Label = $UI/DefeatLabel
 @onready var enemy_container: Node2D = $Enemies
@@ -27,6 +30,7 @@ var selected_tower_type: String = ""
 var selected_tower: TowerBase = null
 var next_level_btn: Button = null
 var current_speed_scale: float = 1.0
+var message_token: int = 0
 
 # 波次数据（10波，5个层级递进）
 var level_1_waves = [
@@ -122,6 +126,7 @@ func _start_current_level() -> void:
 
 	victory_label.visible = false
 	defeat_label.visible = false
+	message_label.visible = false
 	next_level_btn.visible = false
 	$UI/StartWaveBtn.disabled = false
 	$UI/StartWaveBtn.text = "开始波次"
@@ -134,6 +139,7 @@ func _setup_map_for_current_level() -> void:
 	GameState.current_level = map_index + 1
 	var map_data = level_maps[map_index]
 	grid_map.load_map(map_data["blocked_rects"])
+	level_label.text = "关卡: %s (%d/%d)" % [map_data["name"], GameState.current_level, level_maps.size()]
 	victory_label.text = "%s 通过！" % map_data["name"]
 
 func _clear_level_runtime() -> void:
@@ -203,12 +209,15 @@ func _on_tower_selected(type: String) -> void:
 
 func _try_place_tower(cell: Vector2i) -> void:
 	if not grid_map.is_cell_empty(cell):
+		_show_message("这里不能建塔")
 		return
 	if _is_enemy_in_cell(cell):
+		_show_message("敌人占据格子")
 		return
 
 	var script = tower_scripts.get(selected_tower_type)
 	if not script:
+		_show_message("未知塔类型")
 		return
 
 	# 创建塔节点（先不入树，读取默认值检查）
@@ -216,6 +225,7 @@ func _try_place_tower(cell: Vector2i) -> void:
 	tower.set_script(script)
 	if not tower is TowerBase:
 		tower.queue_free()
+		_show_message("塔脚本无效")
 		return
 
 	# 先入树触发 _ready() 让 build_cost 等属性正确初始化
@@ -223,6 +233,7 @@ func _try_place_tower(cell: Vector2i) -> void:
 	
 	# 现在检查费用
 	if not GameState.spend_crystals(tower.build_cost):
+		_show_message("水晶不足，需要 %d" % tower.build_cost)
 		tower.queue_free()
 		return
 
@@ -230,6 +241,7 @@ func _try_place_tower(cell: Vector2i) -> void:
 	if not grid_map.place_tower(cell, tower):
 		GameState.add_crystals(tower.build_cost)  # 退款
 		tower.queue_free()
+		_show_message("不能完全堵死道路")
 		return
 
 	tower.position = grid_map.cell_to_world(cell)
@@ -252,11 +264,13 @@ func _select_tower(tower: TowerBase) -> void:
 	tower_menu.visible = true
 	tower_menu.position = tower.global_position + Vector2(0, -60)
 	tower.show_range()
+	_update_tower_menu()
 
 func _on_upgrade_tower() -> void:
 	if selected_tower and selected_tower.level < 3 and not _is_tower_selling(selected_tower):
 		# TowerBase.upgrade() 内部负责扣费，避免重复扣水晶。
-		selected_tower.upgrade()
+		if not selected_tower.upgrade():
+			_show_message("水晶不足，需要 %d" % selected_tower.get_upgrade_cost())
 	_cancel_all()
 
 func _on_sell_tower() -> void:
@@ -284,6 +298,30 @@ func _finish_sell_tower(tower: TowerBase, sell_value: int) -> void:
 
 func _is_tower_selling(tower: TowerBase) -> bool:
 	return tower.get_meta("selling", false)
+
+func _update_tower_menu() -> void:
+	if not selected_tower:
+		return
+	var upgrade_text = "满级" if selected_tower.level >= 3 else "升级 [%d]" % selected_tower.get_upgrade_cost()
+	$UI/TowerMenu/BtnUpgrade.text = upgrade_text
+	$UI/TowerMenu/BtnUpgrade.disabled = selected_tower.level >= 3
+	$UI/TowerMenu/BtnSell.text = "出售 [%d]" % selected_tower.get_sell_value()
+	tower_info_label.text = "%s Lv.%d\n伤害 %.1f  射程 %d" % [
+		selected_tower.tower_name,
+		selected_tower.level,
+		selected_tower.attack_damage,
+		int(selected_tower.attack_range),
+	]
+
+func _show_message(text: String, duration: float = 1.4) -> void:
+	message_token += 1
+	var token = message_token
+	message_label.text = text
+	message_label.visible = true
+	get_tree().create_timer(duration).timeout.connect(func():
+		if token == message_token:
+			message_label.visible = false
+	)
 
 func _cancel_all() -> void:
 	selected_tower_type = ""

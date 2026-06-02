@@ -22,6 +22,7 @@ var tower_at_cell: Dictionary = {}   # Vector2i → TowerBase
 
 # A* 方向（四方向移动）
 const DIRS = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
+const MAP_RECT := Rect2(GRID_OFFSET, Vector2(GRID_COLS * CELL_SIZE, GRID_ROWS * CELL_SIZE))
 
 # 信号
 signal tower_placed(cell: Vector2i, tower: TowerBase)
@@ -61,33 +62,69 @@ func _draw() -> void:
 	if grid.is_empty():
 		return
 
-	# 绘制网格线
-	for row in range(GRID_ROWS + 1):
-		var y = GRID_OFFSET.y + row * CELL_SIZE
-		draw_line(Vector2(GRID_OFFSET.x, y), Vector2(GRID_OFFSET.x + GRID_COLS * CELL_SIZE, y), Color(0.2, 0.2, 0.3, 0.4), 1.0)
-	for col in range(GRID_COLS + 1):
-		var x = GRID_OFFSET.x + col * CELL_SIZE
-		draw_line(Vector2(x, GRID_OFFSET.y), Vector2(x, GRID_OFFSET.y + GRID_ROWS * CELL_SIZE), Color(0.2, 0.2, 0.3, 0.4), 1.0)
+	_draw_microcosm_backdrop()
+	_draw_walkable_field()
 
 	# 绘制封禁区
 	for row in range(GRID_ROWS):
 		for col in range(GRID_COLS):
 			if grid[row][col] == 4:
 				var pos = cell_to_world(Vector2i(col, row))
-				draw_rect(Rect2(pos - Vector2(22, 22), Vector2(44, 44)), Color(0.08, 0.08, 0.1, 0.78))
-				draw_rect(Rect2(pos - Vector2(22, 22), Vector2(44, 44)), Color(0.45, 0.45, 0.5, 0.45), false, 1.0)
+				_draw_blocked_cell(pos, Vector2i(col, row))
 
 	# 绘制起点和终点
 	var start_pos = cell_to_world(START_CELL)
 	var goal_pos = cell_to_world(GOAL_CELL)
-	draw_rect(Rect2(start_pos - Vector2(20, 20), Vector2(40, 40)), Color.GREEN, false, 2.0)
-	draw_rect(Rect2(goal_pos - Vector2(20, 20), Vector2(40, 40)), Color.RED, false, 2.0)
+	_draw_gate(start_pos, Color(0.25, 1.0, 0.75, 0.9), "IN")
+	_draw_gate(goal_pos, Color(1.0, 0.35, 0.5, 0.9), "OUT")
 
 	# 绘制已放置的塔
 	for cell in tower_at_cell:
 		var pos = cell_to_world(cell)
-		draw_rect(Rect2(pos - Vector2(20, 20), Vector2(40, 40)), Color(0.4, 0.4, 0.8, 0.6))
-		draw_rect(Rect2(pos - Vector2(20, 20), Vector2(40, 40)), Color(0.6, 0.6, 1.0, 0.4), false, 1.5)
+		draw_circle(pos, 22.0, Color(0.26, 0.35, 0.8, 0.18))
+		draw_circle(pos, 20.0, Color(0.7, 0.85, 1.0, 0.38), false, 1.5)
+
+func _draw_microcosm_backdrop() -> void:
+	draw_rect(MAP_RECT.grow(18), Color(0.025, 0.03, 0.08, 0.96))
+	draw_rect(MAP_RECT.grow(18), Color(0.08, 0.18, 0.26, 0.65), false, 2.0)
+
+	for i in range(16):
+		var t = float(i) / 15.0
+		var x = GRID_OFFSET.x + t * GRID_COLS * CELL_SIZE
+		var y = GRID_OFFSET.y + 40.0 + sin(t * TAU * 2.0) * 18.0
+		var next_x = GRID_OFFSET.x + min(1.0, t + 0.07) * GRID_COLS * CELL_SIZE
+		var next_y = GRID_OFFSET.y + 40.0 + sin((t + 0.07) * TAU * 2.0) * 18.0
+		draw_line(Vector2(x, y), Vector2(next_x, next_y), Color(0.18, 0.75, 1.0, 0.18), 2.0)
+
+	for i in range(28):
+		var col = (i * 7) % GRID_COLS
+		var row = (i * 5 + 3) % GRID_ROWS
+		var pos = cell_to_world(Vector2i(col, row)) + Vector2(sin(i) * 10.0, cos(i * 1.7) * 8.0)
+		draw_circle(pos, 2.0 + float(i % 3), Color(0.55, 0.9, 1.0, 0.16))
+
+func _draw_walkable_field() -> void:
+	for row in range(GRID_ROWS):
+		for col in range(GRID_COLS):
+			var cell = Vector2i(col, row)
+			if not is_cell_walkable(cell):
+				continue
+			var pos = cell_to_world(cell)
+			draw_circle(pos, 3.0, Color(0.28, 0.75, 0.95, 0.18))
+			if (row + col) % 3 == 0:
+				draw_circle(pos, 18.0, Color(0.15, 0.5, 0.7, 0.055), false, 1.0)
+
+func _draw_blocked_cell(pos: Vector2, cell: Vector2i) -> void:
+	var phase = float((cell.x * 13 + cell.y * 17) % 11) / 11.0
+	var radius = 18.0 + phase * 4.0
+	draw_circle(pos, radius, Color(0.05, 0.045, 0.09, 0.86))
+	draw_circle(pos + Vector2(-5, -4), radius * 0.42, Color(0.18, 0.12, 0.28, 0.58))
+	draw_circle(pos, radius, Color(0.55, 0.38, 0.8, 0.42), false, 1.2)
+
+func _draw_gate(pos: Vector2, color: Color, label: String) -> void:
+	draw_circle(pos, 22.0, Color(color.r, color.g, color.b, 0.14))
+	draw_circle(pos, 16.0, color, false, 2.4)
+	draw_circle(pos, 6.0, Color(color.r, color.g, color.b, 0.6))
+	draw_string(ThemeDB.fallback_font, pos + Vector2(-12, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)
 
 # === 坐标转换 ===
 

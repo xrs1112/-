@@ -35,17 +35,7 @@ func _ready() -> void:
 	_setup_visual()
 
 func _setup_visual() -> void:
-	# 清除旧的
-	for child in get_children():
-		if child.name == "Visual":
-			child.queue_free()
-	
-	var visual = ColorRect.new()
-	visual.name = "Visual"
-	visual.size = Vector2(40, 40)
-	visual.position = Vector2(-20, -20)
-	visual.color = tower_color
-	add_child(visual)
+	queue_redraw()
 
 func _process(delta: float) -> void:
 	if GameState.game_over or GameState.game_paused or not placed:
@@ -128,10 +118,54 @@ func _refresh_visual() -> void:
 	_setup_visual()
 
 func _draw() -> void:
+	_draw_tower_body()
+
 	# 只在选中塔时绘制攻击范围圆
 	if placed and range_visible:
-		draw_circle(Vector2.ZERO, attack_range, Color(1.0, 1.0, 1.0, 0.1), false, 1.0)
+		draw_circle(Vector2.ZERO, attack_range, Color(0.55, 0.85, 1.0, 0.12), false, 1.2)
 
 	# 绘制方向指示
 	if current_target and not current_target.is_dead:
-		draw_line(Vector2.ZERO, current_target.global_position - global_position, Color.RED, 1.5)
+		draw_line(Vector2.ZERO, current_target.global_position - global_position, tower_color.lightened(0.6), 1.8)
+
+func _draw_tower_body() -> void:
+	var core_color = tower_color
+	var glow_color = Color(core_color.r, core_color.g, core_color.b, 0.22)
+	draw_circle(Vector2.ZERO, 24.0, glow_color)
+
+	match tower_name:
+		"A1":
+			_draw_prism_tower(core_color)
+		"A2":
+			_draw_observer_tower(core_color)
+		"A3":
+			_draw_trap_tower(core_color)
+		_:
+			draw_circle(Vector2.ZERO, 16.0, core_color)
+			draw_circle(Vector2.ZERO, 16.0, Color.WHITE, false, 1.2)
+
+func _draw_prism_tower(color: Color) -> void:
+	var points = PackedVector2Array([
+		Vector2(0, -18),
+		Vector2(16, 10),
+		Vector2(-16, 10),
+	])
+	draw_colored_polygon(points, color)
+	draw_polyline(PackedVector2Array([points[0], points[1], points[2], points[0]]), Color(0.85, 0.95, 1.0, 0.85), 1.4)
+	draw_circle(Vector2.ZERO, 5.0, Color(0.85, 1.0, 1.0, 0.9))
+
+func _draw_observer_tower(color: Color) -> void:
+	draw_circle(Vector2.ZERO, 17.0, Color(color.r, color.g, color.b, 0.24))
+	draw_circle(Vector2.ZERO, 17.0, Color(1.0, 0.95, 0.55, 0.7), false, 2.0)
+	draw_circle(Vector2.ZERO, 8.0, color.lightened(0.2))
+	draw_circle(Vector2.ZERO, 3.0, Color(1.0, 1.0, 0.8, 0.95))
+	draw_line(Vector2(-18, 0), Vector2(18, 0), Color(1.0, 1.0, 0.7, 0.35), 1.2)
+
+func _draw_trap_tower(color: Color) -> void:
+	draw_circle(Vector2.ZERO, 19.0, Color(color.r, color.g, color.b, 0.18))
+	draw_circle(Vector2.ZERO, 19.0, color.lightened(0.1), false, 2.4)
+	draw_circle(Vector2.ZERO, 11.0, Color(1.0, 0.55, 0.25, 0.35), false, 2.0)
+	for i in range(6):
+		var angle = i * TAU / 6.0
+		var p = Vector2(cos(angle), sin(angle)) * 15.0
+		draw_circle(p, 2.0, Color(1.0, 0.82, 0.35, 0.75))
