@@ -7,6 +7,7 @@ extends Node2D
 const COMPENDIUM_DATA = preload("res://scripts/compendium_data.gd")
 const COMPENDIUM_PREVIEW = preload("res://scripts/compendium_preview.gd")
 const BUILD_GHOST = preload("res://scripts/build_ghost.gd")
+const TUTORIAL_OVERLAY = preload("res://scripts/tutorial_overlay.gd")
 
 # 塔脚本引用
 var tower_scripts: Dictionary = {
@@ -54,6 +55,16 @@ var build_tooltip_panel: Panel = null
 var build_tooltip_label: Label = null
 var wave_preview_panel: Panel = null
 var wave_preview_label: Label = null
+var tutorial_panel: Panel = null
+var tutorial_label: Label = null
+var tutorial_overlay = null
+var tutorial_skip_btn: Button = null
+var tutorial_step: int = -1
+var tutorial_build_cell: Vector2i = Vector2i(-1, -1)
+var tutorial_life_notice_shown: bool = false
+var tutorial_pressure_wave_closed: bool = false
+var tutorial_notice_token: int = 0
+var last_lives: int = 0
 var current_wave_data: Array = []
 
 # 波次数据（10波，5个层级递进）
@@ -75,10 +86,10 @@ var level_1_waves = [
 ]
 
 var tutorial_waves = [
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4, "interval": 1.7, "tier": 1}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5, "interval": 1.5, "tier": 1}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4, "interval": 1.5, "tier": 1},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2, "interval": 2.2, "tier": 2}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 3, "interval": 2.0, "tier": 1, "health_multiplier": 0.12, "speed_multiplier": 0.58}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6, "interval": 1.1, "tier": 1, "health_multiplier": 1.1, "speed_multiplier": 1.05}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4, "interval": 1.4, "tier": 1, "health_multiplier": 0.8, "speed_multiplier": 0.72},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 1, "interval": 2.2, "tier": 2, "health_multiplier": 0.45, "speed_multiplier": 0.7}],
 ]
 
 # 5 个关卡地图：blocked_rects 中的矩形格子为封禁区，不可通过、不可建塔。
@@ -196,6 +207,7 @@ func _setup_visual_style() -> void:
 		result_menu_btn,
 		pause_resume_btn,
 		pause_compendium_btn,
+		tutorial_skip_btn,
 		next_level_btn,
 	] + game_compendium_list_buttons:
 		_style_button(button)
@@ -204,9 +216,10 @@ func _setup_visual_style() -> void:
 	game_compendium_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.018, 0.055, 0.1, 0.96), Color(0.34, 0.95, 1.0, 0.72)))
 	build_tooltip_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.94), Color(0.42, 1.0, 0.86, 0.66)))
 	wave_preview_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.76), Color(0.34, 0.95, 1.0, 0.42)))
+	tutorial_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.82), Color(0.62, 1.0, 0.9, 0.56)))
 	for button in [$UI/GameCompendiumPanel/CloseBtn, $UI/GameCompendiumPanel/TowersTab, $UI/GameCompendiumPanel/EnemiesTab]:
 		_style_button(button)
-	for label in [tower_info_label, message_label, result_title, result_body, victory_label, defeat_label, $UI/PausePanel/Title, $UI/GameCompendiumPanel/Title, build_tooltip_label, wave_preview_label]:
+	for label in [tower_info_label, message_label, result_title, result_body, victory_label, defeat_label, $UI/PausePanel/Title, $UI/GameCompendiumPanel/Title, build_tooltip_label, wave_preview_label, tutorial_label]:
 		label.add_theme_color_override("font_color", Color(0.88, 0.98, 1.0, 0.96))
 		label.add_theme_color_override("font_shadow_color", Color(0.0, 0.15, 0.25, 0.9))
 		label.add_theme_constant_override("shadow_offset_x", 1)
@@ -218,6 +231,7 @@ func _setup_visual_style() -> void:
 	build_tooltip_label.add_theme_constant_override("line_spacing", 2)
 	wave_preview_label.add_theme_font_size_override("font_size", 12)
 	wave_preview_label.add_theme_constant_override("line_spacing", 2)
+	tutorial_label.add_theme_font_size_override("font_size", 15)
 	game_compendium_detail_label.add_theme_color_override("default_color", Color(0.88, 0.98, 1.0, 0.96))
 	game_compendium_detail_label.add_theme_font_size_override("normal_font_size", 15)
 	victory_label.add_theme_font_size_override("font_size", 28)
@@ -290,6 +304,40 @@ func _setup_overlay_ui() -> void:
 	wave_preview_label.set_position(Vector2(12, 6))
 	wave_preview_label.size = Vector2(160, 44)
 	wave_preview_panel.add_child(wave_preview_label)
+
+	tutorial_panel = Panel.new()
+	tutorial_panel.name = "TutorialPanel"
+	tutorial_panel.visible = false
+	tutorial_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tutorial_panel.set_position(Vector2(272, 12))
+	tutorial_panel.size = Vector2(760, 38)
+	$UI.add_child(tutorial_panel)
+
+	tutorial_label = Label.new()
+	tutorial_label.name = "TutorialText"
+	tutorial_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tutorial_label.set_position(Vector2(14, 7))
+	tutorial_label.size = Vector2(732, 24)
+	tutorial_panel.add_child(tutorial_label)
+
+	tutorial_overlay = TUTORIAL_OVERLAY.new()
+	tutorial_overlay.name = "TutorialOverlay"
+	tutorial_overlay.visible = false
+	$UI.add_child(tutorial_overlay)
+	tutorial_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tutorial_overlay.offset_left = 0
+	tutorial_overlay.offset_top = 0
+	tutorial_overlay.offset_right = 0
+	tutorial_overlay.offset_bottom = 0
+
+	tutorial_skip_btn = Button.new()
+	tutorial_skip_btn.name = "TutorialSkipBtn"
+	tutorial_skip_btn.visible = false
+	tutorial_skip_btn.text = "跳过教学"
+	tutorial_skip_btn.set_position(Vector2(1088, 74))
+	tutorial_skip_btn.size = Vector2(104, 34)
+	tutorial_skip_btn.pressed.connect(_skip_tutorial)
+	$UI.add_child(tutorial_skip_btn)
 
 	pause_panel = Panel.new()
 	pause_panel.name = "PausePanel"
@@ -415,16 +463,21 @@ func _ensure_next_level_button() -> void:
 func _setup_signals() -> void:
 	GameState.game_won.connect(_on_victory)
 	GameState.game_lost.connect(_on_defeat)
+	GameState.lives_changed.connect(_on_lives_changed)
 	wave_manager.all_waves_finished_signal.connect(_on_all_waves_done)
 	wave_manager.wave_ready.connect(_on_wave_ready)
 	wave_manager.countdown_changed.connect(_on_countdown_changed)
 
 func _start_current_level() -> void:
 	GameState.reset()
+	last_lives = GameState.lives
+	tutorial_life_notice_shown = false
+	tutorial_pressure_wave_closed = false
 	_clear_level_runtime()
 	_setup_map_for_current_level()
 	current_wave_data = _get_wave_data_for_current_level()
 	wave_manager.load_wave_data(current_wave_data)
+	wave_manager.set_countdown_auto_start(not _is_tutorial_level())
 
 	victory_label.visible = false
 	defeat_label.visible = false
@@ -440,9 +493,13 @@ func _start_current_level() -> void:
 	_set_speed(1.0)
 	_update_wave_preview()
 	if GameState.current_level == 0:
-		_show_message("教学：先观察蓝色路线，在微光节点建造量子棱镜。", 4.4)
+		_set_tutorial_step(0)
+		_show_message("教学：跟着上方提示完成第一条防线。", 3.2)
 	elif GameState.current_level == 1:
+		_clear_tutorial()
 		_show_message("点击微光节点建塔，右键取消，准备好后开始波次", 4.0)
+	else:
+		_clear_tutorial()
 
 func _setup_map_for_current_level() -> void:
 	var map_data = _get_current_map_data()
@@ -521,6 +578,23 @@ func _control_tree_has_point(control: Control, mouse_pos: Vector2) -> bool:
 
 func _handle_click(click_pos: Vector2) -> void:
 	var cell = grid_map.world_to_cell(click_pos)
+	if _is_tutorial_level() and not _tutorial_allows_map_click(cell):
+		_show_message("请点击教学高亮区域", 1.2)
+		grid_map.pulse_route_hint(2.0)
+		return
+	if _is_tutorial_level() and tutorial_step == 4:
+		_set_tutorial_step(5)
+		return
+	if _is_tutorial_level() and tutorial_step == 6:
+		if tutorial_overlay:
+			tutorial_overlay.clear()
+		_show_message("观察第二波：漏怪后会提示生命变化", 2.0)
+		return
+	if _is_tutorial_level() and tutorial_step == 10:
+		return
+	if _is_tutorial_level() and tutorial_step == 11:
+		GameState.trigger_game_over(true)
+		return
 
 	# 如果正在放置塔
 	if selected_tower_type != "":
@@ -551,11 +625,19 @@ func _show_build_menu_at(world_pos: Vector2) -> void:
 	_cancel_all()
 	build_menu.visible = true
 	build_menu.position = world_pos + Vector2(0, -60)
+	if _is_tutorial_level() and tutorial_step == 0:
+		tutorial_build_cell = grid_map.world_to_cell(world_pos)
+		_set_tutorial_step(1)
 
 func _on_tower_selected(type: String) -> void:
+	if _is_tutorial_level() and (tutorial_step != 1 or type != "probability"):
+		_show_message("教学中先选择量子棱镜", 1.2)
+		return
 	selected_tower_type = type
 	build_menu.visible = false
 	_hide_build_tooltip()
+	if _is_tutorial_level() and tutorial_step <= 1:
+		_set_tutorial_step(2)
 
 func _try_place_tower(cell: Vector2i) -> void:
 	if not grid_map.is_cell_empty(cell):
@@ -601,6 +683,8 @@ func _try_place_tower(cell: Vector2i) -> void:
 	selected_tower_type = ""
 	grid_map.pulse_route_hint(2.4)
 	_recalculate_all_enemy_paths()
+	if _is_tutorial_level() and tutorial_step <= 2:
+		_set_tutorial_step(3)
 
 func _is_enemy_in_cell(cell: Vector2i) -> bool:
 	for enemy in get_tree().get_nodes_in_group("enemy"):
@@ -616,6 +700,8 @@ func _select_tower(tower: TowerBase) -> void:
 	tower_menu.position = _fit_popup_to_view(tower.global_position + Vector2(-130, -210), tower_menu.size)
 	tower.show_range()
 	_update_tower_menu()
+	if _is_tutorial_level() and tutorial_step == 7:
+		_set_tutorial_step(8)
 
 func _fit_popup_to_view(pos: Vector2, popup_size: Vector2) -> Vector2:
 	var viewport_size = get_viewport_rect().size
@@ -661,18 +747,208 @@ func _update_wave_preview(prefix: String = "") -> void:
 		" / ".join(parts),
 	]
 
+func _is_tutorial_level() -> bool:
+	return GameState.current_level == 0
+
+func _set_tutorial_step(step: int) -> void:
+	if not _is_tutorial_level() or GameState.game_over:
+		return
+	tutorial_step = max(tutorial_step, step)
+	tutorial_panel.visible = false
+	tutorial_skip_btn.visible = true
+	_update_tutorial_controls()
+	_update_tutorial_overlay()
+	tutorial_label.text = _get_tutorial_text(tutorial_step)
+
+func _update_tutorial_overlay() -> void:
+	if not _is_tutorial_level() or not tutorial_overlay or GameState.game_over or result_panel.visible:
+		return
+	var rects := _get_tutorial_focus_rects()
+	var bubble_pos := _get_tutorial_bubble_position()
+	tutorial_overlay.set_tutorial_state(_get_tutorial_text(tutorial_step), rects, bubble_pos)
+
+func _get_tutorial_focus_rects() -> Array[Rect2]:
+	match tutorial_step:
+		0:
+			return [_cell_focus_rect(_tutorial_build_target_cell())]
+		1:
+			return [_control_focus_rect(build_menu)]
+		2:
+			return [_cell_focus_rect(tutorial_build_cell)]
+		3:
+			return [_control_focus_rect($UI/StartWaveBtn)]
+		4:
+			return [Rect2(GameGrid.GRID_OFFSET, Vector2(GameGrid.GRID_COLS * GameGrid.CELL_SIZE, GameGrid.GRID_ROWS * GameGrid.CELL_SIZE))]
+		5:
+			return [_control_focus_rect($UI/StartWaveBtn)]
+		6:
+			return [Rect2(GameGrid.GRID_OFFSET, Vector2(GameGrid.GRID_COLS * GameGrid.CELL_SIZE, GameGrid.GRID_ROWS * GameGrid.CELL_SIZE))]
+		7:
+			return [_cell_focus_rect(_get_first_tower_cell())]
+		8:
+			return [_control_focus_rect($UI/TowerMenu/BtnUpgrade)]
+		9:
+			return [_control_focus_rect($UI/StartWaveBtn)]
+		10:
+			return [Rect2(GameGrid.GRID_OFFSET, Vector2(GameGrid.GRID_COLS * GameGrid.CELL_SIZE, GameGrid.GRID_ROWS * GameGrid.CELL_SIZE))]
+		11:
+			return [Rect2(GameGrid.GRID_OFFSET, Vector2(GameGrid.GRID_COLS * GameGrid.CELL_SIZE, GameGrid.GRID_ROWS * GameGrid.CELL_SIZE))]
+		_:
+			return []
+
+func _get_tutorial_bubble_position() -> Vector2:
+	return Vector2(390, 244)
+
+func _tutorial_allows_map_click(cell: Vector2i) -> bool:
+	match tutorial_step:
+		0:
+			return cell == _tutorial_build_target_cell()
+		2:
+			return cell == tutorial_build_cell
+		4:
+			return _is_inside_map(cell)
+		6:
+			return _is_inside_map(cell)
+		7:
+			return grid_map.get_tower_at(cell) != null
+		11:
+			return _is_inside_map(cell)
+		_:
+			return false
+
+func _is_inside_map(cell: Vector2i) -> bool:
+	return cell.x >= 0 and cell.x < GameGrid.GRID_COLS and cell.y >= 0 and cell.y < GameGrid.GRID_ROWS
+
+func _tutorial_build_target_cell() -> Vector2i:
+	return Vector2i(1, 2)
+
+func _cell_focus_rect(cell: Vector2i) -> Rect2:
+	var pos = grid_map.cell_to_world(cell)
+	var half := Vector2(GameGrid.CELL_SIZE, GameGrid.CELL_SIZE) * 0.55
+	return Rect2(pos - half, half * 2.0)
+
+func _control_focus_rect(control: Control) -> Rect2:
+	if not control or not control.visible:
+		return Rect2(Vector2.ZERO, Vector2.ZERO)
+	return control.get_global_rect()
+
+func _get_first_tower_cell() -> Vector2i:
+	for cell in grid_map.tower_at_cell.keys():
+		return cell
+	return tutorial_build_cell
+
+func _update_tutorial_controls() -> void:
+	var in_tutorial := _is_tutorial_level()
+	$UI/RestartBtn.disabled = in_tutorial
+	$UI/HPBtn.disabled = in_tutorial
+	$UI/PauseBtn.disabled = in_tutorial
+	$UI/Speed2Btn.disabled = in_tutorial
+	$UI/Speed4Btn.disabled = in_tutorial
+	$UI/MainMenuBtn.disabled = in_tutorial
+	$UI/BuildMenu/BtnProbability.disabled = in_tutorial and tutorial_step != 1
+	$UI/BuildMenu/BtnObserver.disabled = in_tutorial
+	$UI/BuildMenu/BtnQuarkTrap.disabled = in_tutorial
+	$UI/StartWaveBtn.disabled = in_tutorial and tutorial_step not in [3, 5, 9]
+	$UI/TowerMenu/BtnSell.disabled = in_tutorial
+	if selected_tower:
+		$UI/TowerMenu/BtnUpgrade.disabled = (selected_tower.level >= 3) or (in_tutorial and tutorial_step != 8)
+	if in_tutorial and tutorial_step >= 10:
+		$UI/StartWaveBtn.disabled = true
+
+func _clear_tutorial() -> void:
+	tutorial_step = -1
+	tutorial_build_cell = Vector2i(-1, -1)
+	tutorial_panel.visible = false
+	if tutorial_overlay:
+		tutorial_overlay.clear()
+	if tutorial_skip_btn:
+		tutorial_skip_btn.visible = false
+	_update_tutorial_controls()
+
+func _skip_tutorial() -> void:
+	GameState.current_level = 1
+	_start_current_level()
+
+func _has_next_wave_to_start() -> bool:
+	return wave_manager.next_spawn_index < current_wave_data.size()
+
+func _show_tutorial_notice(text: String, duration: float = 3.2) -> void:
+	if not _is_tutorial_level() or GameState.game_over or not tutorial_overlay or not tutorial_overlay.visible:
+		return
+	tutorial_notice_token += 1
+	var token = tutorial_notice_token
+	tutorial_overlay.set_tutorial_state(text, _get_tutorial_focus_rects(), _get_tutorial_bubble_position())
+	get_tree().create_timer(duration).timeout.connect(func():
+		if token == tutorial_notice_token and _is_tutorial_level() and not GameState.game_over and tutorial_overlay:
+			_update_tutorial_overlay()
+	)
+
+func _show_tutorial_life_notice(text: String, duration: float = 4.2) -> void:
+	if not _is_tutorial_level() or GameState.game_over or not tutorial_overlay:
+		return
+	tutorial_notice_token += 1
+	var token = tutorial_notice_token
+	var life_rect = _control_focus_rect($UI/HUD/LivesLabel).grow(8.0)
+	var focus_rects: Array[Rect2] = [life_rect]
+	tutorial_overlay.set_tutorial_state(text, focus_rects, _get_tutorial_bubble_position())
+	get_tree().create_timer(duration).timeout.connect(func():
+		if token == tutorial_notice_token and _is_tutorial_level() and not GameState.game_over and tutorial_overlay:
+			_update_tutorial_overlay()
+	)
+
+func _get_tutorial_text(step: int) -> String:
+	match step:
+		0:
+			return "教学 1/10：蓝色流光是敌人路线。点击路线旁的微光节点打开建造菜单。"
+		1:
+			return "教学 2/10：鼠标放到塔按钮上可看属性。先选择量子棱镜。"
+		2:
+			return "教学 3/10：移动建造影子，绿色可建造，红色不可建造。左键确认。"
+		3:
+			return "教学 4/10：第一座塔已就位。点击左侧“开始波次”迎敌。"
+		4:
+			return "教学 5/10：第一波是演示波，防御塔会击杀脆弱敌人。读完后点击高亮地图。"
+		5:
+			return "教学 6/10：第一波守住了。第二波敌人会加强，点击“开始波次”。"
+		6:
+			return "教学 7/10：第二波更强，未升级的塔会漏掉少量敌人。读完点击高亮地图继续观察。"
+		7:
+			return "教学 8/10：敌人抵达 OUT 会扣生命。点击防御塔准备升级。"
+		8:
+			return "教学 9/10：点击升级按钮。升级后，防御塔属性会提升。"
+		9:
+			return "教学 10/10：点击“开始波次”。升级后的塔将守住第三波。"
+		10:
+			return "教学 10/10：第三波正在处理。清点完成后会结算。"
+		11:
+			return "教学完成：升级后的防御塔守住了第三波。点击高亮地图进入结算。"
+		_:
+			return "教学：完成剩余波次，稳定第一条微观防线。"
+
 func _on_upgrade_tower() -> void:
 	if not selected_tower or _is_tower_selling(selected_tower):
 		_cancel_all()
+		return
+	if _is_tutorial_level() and tutorial_step != 8:
+		_show_message("请按当前教学提示操作", 1.2)
 		return
 	if selected_tower.level >= 3:
 		_update_tower_menu()
 		return
 
 	# TowerBase.upgrade() 内部负责扣费，避免重复扣水晶。
-	if not selected_tower.upgrade():
+	var upgraded := selected_tower.upgrade()
+	if not upgraded:
 		_show_message("水晶不足，需要 %d" % selected_tower.get_upgrade_cost())
-	_update_tower_menu()
+	elif _is_tutorial_level() and tutorial_step <= 8:
+		if selected_tower and is_instance_valid(selected_tower):
+			selected_tower.hide_range()
+		tower_menu.visible = false
+		selected_tower = null
+		wave_manager.set_countdown_paused(false)
+		_set_tutorial_step(9)
+	if selected_tower:
+		_update_tower_menu()
 
 func _on_sell_tower() -> void:
 	if selected_tower and not _is_tower_selling(selected_tower):
@@ -739,10 +1015,25 @@ func _recalculate_all_enemy_paths() -> void:
 func _on_start_wave() -> void:
 	if GameState.game_over:
 		return
+	if _is_tutorial_level() and grid_map.tower_at_cell.is_empty() and wave_manager.next_spawn_index == 0:
+		_show_message("先在路线旁建造一座塔", 1.8)
+		_set_tutorial_step(0)
+		grid_map.pulse_route_hint(2.4)
+		return
 	wave_manager.start_wave()
 	$UI/StartWaveBtn.text = "提前开始下一波"
 	grid_map.pulse_route_hint(2.0)
 	_update_wave_preview()
+	if _is_tutorial_level() and tutorial_step == 3:
+		_set_tutorial_step(4)
+	elif _is_tutorial_level() and tutorial_step == 5:
+		wave_manager.set_countdown_paused(false)
+		_set_tutorial_step(6)
+	elif _is_tutorial_level() and tutorial_step == 9:
+		_set_tutorial_step(10)
+	elif _is_tutorial_level() and tutorial_step >= 10:
+		_update_tutorial_controls()
+		_update_tutorial_overlay()
 
 func _on_restart() -> void:
 	Engine.time_scale = 1.0
@@ -825,6 +1116,11 @@ func _on_all_waves_done() -> void:
 	$UI/StartWaveBtn.disabled = true
 	GameState.unlock_next_level(GameState.current_level)
 	wave_preview_label.text = "本关波次完成\n清点防线状态"
+	if _is_tutorial_level():
+		$UI/StartWaveBtn.text = "教学完成"
+		wave_preview_label.text = "教学完成\n点击地图结算"
+		_set_tutorial_step(11)
+		return
 	if GameState.current_level < level_maps.size():
 		$UI/StartWaveBtn.text = "本关完成"
 		next_level_btn.text = "挑战第%d关" % (GameState.current_level + 1)
@@ -844,10 +1140,56 @@ func _on_wave_ready() -> void:
 	$UI/StartWaveBtn.disabled = false
 	$UI/StartWaveBtn.text = "开始波次"
 	_update_wave_preview()
+	if _is_tutorial_level() and wave_manager.completed_waves == 1:
+		wave_manager.set_countdown_paused(true)
+		if tutorial_step < 5:
+			_set_tutorial_step(4)
+		else:
+			_update_tutorial_controls()
+			_update_tutorial_overlay()
+	elif _is_tutorial_level() and wave_manager.completed_waves == 2:
+		wave_manager.set_countdown_paused(true)
+		tutorial_pressure_wave_closed = true
+		_set_tutorial_step(7)
+	elif _is_tutorial_level() and tutorial_step >= 10:
+		_update_tutorial_controls()
+		_update_tutorial_overlay()
 
 func _on_countdown_changed(remaining: float) -> void:
+	if _is_tutorial_level() and wave_manager.countdown_paused:
+		$UI/StartWaveBtn.text = "倒计时暂停"
+		_update_wave_preview("学习模式暂停")
+		return
 	$UI/StartWaveBtn.text = "下波 %ds" % int(ceil(max(remaining, 0.0)))
 	_update_wave_preview("倒计时 %ds" % int(ceil(max(remaining, 0.0))))
+
+func _on_lives_changed(new_amount: int) -> void:
+	if _is_tutorial_level() and new_amount < last_lives and not tutorial_life_notice_shown:
+		tutorial_life_notice_shown = true
+		_show_tutorial_life_notice("生命值减少了：有敌人抵达 OUT。第二波结束后，我们会升级防御塔来解决它。", 4.2)
+		if GameState.current_wave == 2 and not tutorial_pressure_wave_closed:
+			tutorial_pressure_wave_closed = true
+			get_tree().create_timer(1.8).timeout.connect(_finish_tutorial_pressure_wave)
+	last_lives = new_amount
+
+func _finish_tutorial_pressure_wave() -> void:
+	if not _is_tutorial_level() or GameState.game_over or GameState.current_wave != 2:
+		return
+	wave_manager.active_spawns.clear()
+	wave_manager.completed_waves = max(wave_manager.completed_waves, 2)
+	wave_manager.next_spawn_index = max(wave_manager.next_spawn_index, 2)
+	wave_manager.is_countdown = true
+	wave_manager.countdown_timer = wave_manager.wave_delay
+	wave_manager.set_countdown_paused(true)
+	GameState.wave_active = false
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(enemy):
+			enemy.queue_free()
+	for bullet in get_tree().get_nodes_in_group("bullet"):
+		if is_instance_valid(bullet):
+			bullet.queue_free()
+	_update_wave_preview("学习模式暂停")
+	_set_tutorial_step(7)
 
 func _on_victory() -> void:
 	_show_result(true)
@@ -857,6 +1199,14 @@ func _on_defeat() -> void:
 
 func _show_result(won: bool) -> void:
 	_cancel_all()
+	if _is_tutorial_level():
+		tutorial_notice_token += 1
+		tutorial_step = -1
+		tutorial_panel.visible = false
+		if tutorial_overlay:
+			tutorial_overlay.clear()
+		if tutorial_skip_btn:
+			tutorial_skip_btn.visible = false
 	result_panel.visible = true
 	result_next_btn.visible = won and GameState.current_level < level_maps.size()
 	result_next_btn.disabled = not result_next_btn.visible

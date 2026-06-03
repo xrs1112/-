@@ -10,6 +10,8 @@ var active_spawns: Array = []     # 活跃的生成队列
 var wave_delay: float = 60.0
 var countdown_timer: float = 0.0
 var is_countdown: bool = false
+var countdown_paused: bool = false
+var countdown_auto_start: bool = true
 var all_waves_finished: bool = false
 
 @export var enemy_container: NodePath
@@ -32,11 +34,17 @@ func _process(delta: float) -> void:
 
 	# 处理倒计时
 	if is_countdown:
+		if countdown_paused:
+			countdown_changed.emit(max(countdown_timer, 0.0))
+			return
 		countdown_timer -= delta
 		countdown_changed.emit(max(countdown_timer, 0.0))
 		if countdown_timer <= 0:
 			is_countdown = false
-			start_wave()
+			if countdown_auto_start:
+				start_wave()
+			else:
+				wave_ready.emit()
 		return
 
 	# 处理活跃生成队列
@@ -66,6 +74,8 @@ func load_wave_data(data: Array) -> void:
 	completed_waves = 0
 	active_spawns.clear()
 	is_countdown = false
+	countdown_paused = false
+	countdown_auto_start = true
 	all_waves_finished = false
 	GameState.wave_changed.emit(GameState.current_wave)
 
@@ -74,6 +84,7 @@ func start_wave() -> void:
 		return
 
 	is_countdown = false
+	countdown_paused = false
 	countdown_timer = 0
 
 	var groups = wave_data[next_spawn_index]
@@ -84,6 +95,8 @@ func start_wave() -> void:
 			"timer": 0.0,
 			"remaining": g["count"],
 			"tier": g.get("tier", 1),
+			"health_multiplier": g.get("health_multiplier", 1.0),
+			"speed_multiplier": g.get("speed_multiplier", 1.0),
 		})
 
 	GameState.current_wave = next_spawn_index + 1
@@ -121,6 +134,9 @@ func _spawn_one(spawn: Dictionary) -> void:
 	if parent == null:
 		parent = get_parent()
 	parent.add_child(enemy)
+	enemy.max_health *= float(spawn.get("health_multiplier", 1.0))
+	enemy.current_health = enemy.max_health
+	enemy.speed *= float(spawn.get("speed_multiplier", 1.0))
 
 	spawn["remaining"] -= 1
 
@@ -141,3 +157,11 @@ func _check_done() -> void:
 		countdown_timer = wave_delay
 		countdown_changed.emit(countdown_timer)
 		wave_ready.emit()
+
+func set_countdown_paused(paused: bool) -> void:
+	countdown_paused = paused
+	if is_countdown:
+		countdown_changed.emit(countdown_timer)
+
+func set_countdown_auto_start(enabled: bool) -> void:
+	countdown_auto_start = enabled
