@@ -74,7 +74,7 @@ offset_left = 0.0
 offset_top = 0.0
 offset_right = 130.0
 offset_bottom = 30.0
-text = "量子棱镜 [10]"
+text = "量子棱镜 [12]"
 
 [node name="BtnObserver" type="Button" parent="UI/BuildMenu"]
 layout_mode = 0
@@ -82,7 +82,7 @@ offset_left = 0.0
 offset_top = 40.0
 offset_right = 130.0
 offset_bottom = 70.0
-text = "观测棱镜 [15]"
+text = "观测棱镜 [18]"
 
 [node name="BtnQuarkTrap" type="Button" parent="UI/BuildMenu"]
 layout_mode = 0
@@ -90,7 +90,7 @@ offset_left = 0.0
 offset_top = 80.0
 offset_right = 130.0
 offset_bottom = 110.0
-text = "虚粒子阱 [20]"
+text = "虚粒子阱 [26]"
 
 [node name="TowerMenu" type="Control" parent="UI"]
 visible = false

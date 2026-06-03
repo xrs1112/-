@@ -23,7 +23,7 @@ var path_index: int = 0
 var target_world_pos: Vector2
 var grid_map = null
 var route_random_seed: int = 0
-var route_random_strength: float = 0.35
+var route_random_strength: float = 0.0
 var route_max_length_factor: float = 1.2
 
 # 减速/DOT 状态
@@ -96,11 +96,7 @@ func _recalculate_path() -> void:
 		return
 	# 找到当前最近的网格位置
 	var current_cell = grid_map.world_to_cell(global_position)
-	var new_path: Array[Vector2i] = []
-	if grid_map.has_method("find_varied_path"):
-		new_path = grid_map.find_varied_path(current_cell, Vector2i(21, 12), route_random_seed, route_random_strength, route_max_length_factor)
-	else:
-		new_path = grid_map.find_path(current_cell, Vector2i(21, 12))
+	var new_path: Array[Vector2i] = grid_map.find_path(current_cell, Vector2i(21, 12))
 	# 找不到路时保留旧路径，不把敌人误判为到达终点/消失。
 	if new_path.is_empty():
 		return

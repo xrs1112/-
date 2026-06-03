@@ -15,11 +15,11 @@ var shockwave_duration: float = 0.35
 func _ready() -> void:
 	tower_name = "虚粒子阱"
 	description = "敌人靠近时释放范围脉冲"
-	build_cost = 20
+	build_cost = 26
 	attack_damage = 0.0
 	attack_speed = 0.0
 	attack_range = explosion_radius
-	upgrade_cost = 25
+	upgrade_cost = 34
 	tower_color = Color(0.7, 0.25, 0.15, 0.8)  # 暗红
 	super()
 

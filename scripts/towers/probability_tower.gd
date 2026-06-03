@@ -5,11 +5,11 @@ extends TowerBase
 func _ready() -> void:
 	tower_name = "量子棱镜"
 	description = "稳定发射量子束，适合基础输出"
-	build_cost = 10
+	build_cost = 12
 	attack_damage = 1.0
 	attack_speed = 1.0
 	attack_range = 150.0
-	upgrade_cost = 15
+	upgrade_cost = 18
 	tower_color = Color(0.3, 0.3, 0.7, 0.8)  # 深蓝紫
 	super()
 

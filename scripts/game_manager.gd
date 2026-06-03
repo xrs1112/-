@@ -50,6 +50,11 @@ var game_compendium_detail_label: RichTextLabel = null
 var game_compendium_list_buttons: Array[Button] = []
 var game_compendium_category: String = "towers"
 var build_ghost: Control = null
+var build_tooltip_panel: Panel = null
+var build_tooltip_label: Label = null
+var wave_preview_panel: Panel = null
+var wave_preview_label: Label = null
+var current_wave_data: Array = []
 
 # 波次数据（10波，5个层级递进）
 var level_1_waves = [
@@ -67,6 +72,13 @@ var level_1_waves = [
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.2, "tier": 4},
 	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.5, "tier": 5}],
 	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 2.0, "tier": 5}],
+]
+
+var tutorial_waves = [
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4, "interval": 1.7, "tier": 1}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5, "interval": 1.5, "tier": 1}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4, "interval": 1.5, "tier": 1},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2, "interval": 2.2, "tier": 2}],
 ]
 
 # 5 个关卡地图：blocked_rects 中的矩形格子为封禁区，不可通过、不可建塔。
@@ -95,7 +107,7 @@ var level_maps = [
 ]
 
 func _ready() -> void:
-	if GameState.current_level < 1 or GameState.current_level > level_maps.size():
+	if GameState.current_level < 0 or GameState.current_level > level_maps.size():
 		GameState.current_level = 1
 	_setup_overlay_ui()
 	_setup_build_ghost()
@@ -148,6 +160,12 @@ func _setup_ui_connections() -> void:
 	$UI/BuildMenu/BtnProbability.pressed.connect(func(): _on_tower_selected("probability"))
 	$UI/BuildMenu/BtnObserver.pressed.connect(func(): _on_tower_selected("observer"))
 	$UI/BuildMenu/BtnQuarkTrap.pressed.connect(func(): _on_tower_selected("quark_trap"))
+	$UI/BuildMenu/BtnProbability.mouse_entered.connect(func(): _show_build_tooltip("probability", $UI/BuildMenu/BtnProbability))
+	$UI/BuildMenu/BtnObserver.mouse_entered.connect(func(): _show_build_tooltip("observer", $UI/BuildMenu/BtnObserver))
+	$UI/BuildMenu/BtnQuarkTrap.mouse_entered.connect(func(): _show_build_tooltip("quark_trap", $UI/BuildMenu/BtnQuarkTrap))
+	$UI/BuildMenu/BtnProbability.mouse_exited.connect(_hide_build_tooltip)
+	$UI/BuildMenu/BtnObserver.mouse_exited.connect(_hide_build_tooltip)
+	$UI/BuildMenu/BtnQuarkTrap.mouse_exited.connect(_hide_build_tooltip)
 	$UI/TowerMenu/BtnUpgrade.pressed.connect(_on_upgrade_tower)
 	$UI/TowerMenu/BtnSell.pressed.connect(_on_sell_tower)
 	result_replay_btn.pressed.connect(_on_restart)
@@ -184,9 +202,11 @@ func _setup_visual_style() -> void:
 	result_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.93), Color(0.34, 0.95, 1.0, 0.66)))
 	pause_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.95), Color(0.34, 0.95, 1.0, 0.72)))
 	game_compendium_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.018, 0.055, 0.1, 0.96), Color(0.34, 0.95, 1.0, 0.72)))
+	build_tooltip_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.94), Color(0.42, 1.0, 0.86, 0.66)))
+	wave_preview_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.76), Color(0.34, 0.95, 1.0, 0.42)))
 	for button in [$UI/GameCompendiumPanel/CloseBtn, $UI/GameCompendiumPanel/TowersTab, $UI/GameCompendiumPanel/EnemiesTab]:
 		_style_button(button)
-	for label in [tower_info_label, message_label, result_title, result_body, victory_label, defeat_label, $UI/PausePanel/Title, $UI/GameCompendiumPanel/Title]:
+	for label in [tower_info_label, message_label, result_title, result_body, victory_label, defeat_label, $UI/PausePanel/Title, $UI/GameCompendiumPanel/Title, build_tooltip_label, wave_preview_label]:
 		label.add_theme_color_override("font_color", Color(0.88, 0.98, 1.0, 0.96))
 		label.add_theme_color_override("font_shadow_color", Color(0.0, 0.15, 0.25, 0.9))
 		label.add_theme_constant_override("shadow_offset_x", 1)
@@ -194,6 +214,10 @@ func _setup_visual_style() -> void:
 	message_label.add_theme_font_size_override("font_size", 18)
 	tower_info_label.add_theme_font_size_override("font_size", 14)
 	tower_info_label.add_theme_constant_override("line_spacing", 2)
+	build_tooltip_label.add_theme_font_size_override("font_size", 13)
+	build_tooltip_label.add_theme_constant_override("line_spacing", 2)
+	wave_preview_label.add_theme_font_size_override("font_size", 12)
+	wave_preview_label.add_theme_constant_override("line_spacing", 2)
 	game_compendium_detail_label.add_theme_color_override("default_color", Color(0.88, 0.98, 1.0, 0.96))
 	game_compendium_detail_label.add_theme_font_size_override("normal_font_size", 15)
 	victory_label.add_theme_font_size_override("font_size", 28)
@@ -239,6 +263,34 @@ func _make_panel_style(bg: Color, border: Color) -> StyleBoxFlat:
 	return style
 
 func _setup_overlay_ui() -> void:
+	build_tooltip_panel = Panel.new()
+	build_tooltip_panel.name = "BuildTooltipPanel"
+	build_tooltip_panel.visible = false
+	build_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	build_tooltip_panel.size = Vector2(246, 120)
+	$UI.add_child(build_tooltip_panel)
+
+	build_tooltip_label = Label.new()
+	build_tooltip_label.name = "TooltipText"
+	build_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	build_tooltip_label.set_position(Vector2(14, 10))
+	build_tooltip_label.size = Vector2(218, 98)
+	build_tooltip_panel.add_child(build_tooltip_label)
+
+	wave_preview_panel = Panel.new()
+	wave_preview_panel.name = "WavePreviewPanel"
+	wave_preview_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wave_preview_panel.set_position(Vector2(42, 562))
+	wave_preview_panel.size = Vector2(184, 56)
+	$UI.add_child(wave_preview_panel)
+
+	wave_preview_label = Label.new()
+	wave_preview_label.name = "WavePreviewText"
+	wave_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	wave_preview_label.set_position(Vector2(12, 6))
+	wave_preview_label.size = Vector2(160, 44)
+	wave_preview_panel.add_child(wave_preview_label)
+
 	pause_panel = Panel.new()
 	pause_panel.name = "PausePanel"
 	pause_panel.visible = false
@@ -371,7 +423,8 @@ func _start_current_level() -> void:
 	GameState.reset()
 	_clear_level_runtime()
 	_setup_map_for_current_level()
-	wave_manager.load_wave_data(level_1_waves)
+	current_wave_data = _get_wave_data_for_current_level()
+	wave_manager.load_wave_data(current_wave_data)
 
 	victory_label.visible = false
 	defeat_label.visible = false
@@ -385,16 +438,37 @@ func _start_current_level() -> void:
 	$UI/HPBtn.text = "血量: " + ("开" if GameState.show_hp_numbers else "关")
 	_set_pause(false)
 	_set_speed(1.0)
-	if GameState.current_level == 1:
+	_update_wave_preview()
+	if GameState.current_level == 0:
+		_show_message("教学：先观察蓝色路线，在微光节点建造量子棱镜。", 4.4)
+	elif GameState.current_level == 1:
 		_show_message("点击微光节点建塔，右键取消，准备好后开始波次", 4.0)
 
 func _setup_map_for_current_level() -> void:
+	var map_data = _get_current_map_data()
+	grid_map.load_map(map_data["blocked_rects"])
+	var progress_text = "教学" if GameState.current_level == 0 else "%d/%d" % [GameState.current_level, level_maps.size()]
+	level_label.text = "关卡: %s\n进度: %s" % [map_data["name"], progress_text]
+	victory_label.text = "%s 通过！" % map_data["name"]
+
+func _get_current_map_data() -> Dictionary:
+	if GameState.current_level == 0:
+		return {
+			"name": "教学关：微光入门",
+			"blocked_rects": [
+				Rect2i(5, 0, 6, 2),
+				Rect2i(13, 3, 5, 2),
+				Rect2i(4, 6, 4, 2),
+				Rect2i(12, 8, 5, 2),
+				Rect2i(20, 12, 1, 1),
+			],
+		}
 	var map_index = clampi(GameState.current_level - 1, 0, level_maps.size() - 1)
 	GameState.current_level = map_index + 1
-	var map_data = level_maps[map_index]
-	grid_map.load_map(map_data["blocked_rects"])
-	level_label.text = "关卡: %s\n进度: %d/%d" % [map_data["name"], GameState.current_level, level_maps.size()]
-	victory_label.text = "%s 通过！" % map_data["name"]
+	return level_maps[map_index]
+
+func _get_wave_data_for_current_level() -> Array:
+	return tutorial_waves if GameState.current_level == 0 else level_1_waves
 
 func _clear_level_runtime() -> void:
 	_cancel_all()
@@ -481,6 +555,7 @@ func _show_build_menu_at(world_pos: Vector2) -> void:
 func _on_tower_selected(type: String) -> void:
 	selected_tower_type = type
 	build_menu.visible = false
+	_hide_build_tooltip()
 
 func _try_place_tower(cell: Vector2i) -> void:
 	if not grid_map.is_cell_empty(cell):
@@ -524,6 +599,7 @@ func _try_place_tower(cell: Vector2i) -> void:
 	tower.grid_cell = cell
 
 	selected_tower_type = ""
+	grid_map.pulse_route_hint(2.4)
 	_recalculate_all_enemy_paths()
 
 func _is_enemy_in_cell(cell: Vector2i) -> bool:
@@ -547,6 +623,43 @@ func _fit_popup_to_view(pos: Vector2, popup_size: Vector2) -> Vector2:
 		clampf(pos.x, 16.0, viewport_size.x - popup_size.x - 16.0),
 		clampf(pos.y, 16.0, viewport_size.y - popup_size.y - 16.0)
 	)
+
+func _show_build_tooltip(type: String, button: Button) -> void:
+	build_tooltip_label.text = _get_build_tooltip_text(type)
+	build_tooltip_panel.visible = true
+	var pos = button.get_global_position() + Vector2(button.size.x + 12.0, -10.0)
+	build_tooltip_panel.position = _fit_popup_to_view(pos, build_tooltip_panel.size)
+
+func _hide_build_tooltip() -> void:
+	build_tooltip_panel.visible = false
+
+func _get_build_tooltip_text(type: String) -> String:
+	match type:
+		"observer":
+			return "观测棱镜 [18]\n伤害 1.0  攻速 1.0\n射程 180  减速 50%\n控制塔，延长输出窗口"
+		"quark_trap":
+			return "虚粒子阱 [26]\n爆发 3.0  半径 80\n冷却 2.0s\n范围清场，适合拐角"
+		_:
+			return "量子棱镜 [12]\n伤害 1.0  攻速 1.0\n射程 150\n稳定单体输出"
+
+func _update_wave_preview(prefix: String = "") -> void:
+	var next_index = wave_manager.next_spawn_index
+	if next_index >= current_wave_data.size():
+		wave_preview_label.text = "波次完成\n等待清点"
+		return
+
+	var groups: Array = current_wave_data[next_index]
+	var parts: Array[String] = []
+	for group in groups:
+		parts.append("T%d x%d" % [int(group.get("tier", 1)), int(group.get("count", 0))])
+
+	var title = prefix if prefix != "" else "下一波"
+	wave_preview_label.text = "%s\n第%d/%d波  %s" % [
+		title,
+		next_index + 1,
+		current_wave_data.size(),
+		" / ".join(parts),
+	]
 
 func _on_upgrade_tower() -> void:
 	if not selected_tower or _is_tower_selling(selected_tower):
@@ -582,6 +695,7 @@ func _finish_sell_tower(tower: TowerBase, sell_value: int) -> void:
 	GameState.add_crystals(sell_value)
 	grid_map.remove_tower(tower.grid_cell)
 	tower.queue_free()
+	grid_map.pulse_route_hint(2.4)
 	_recalculate_all_enemy_paths()
 
 func _is_tower_selling(tower: TowerBase) -> bool:
@@ -610,6 +724,7 @@ func _cancel_all() -> void:
 	selected_tower_type = ""
 	build_menu.visible = false
 	tower_menu.visible = false
+	_hide_build_tooltip()
 	if build_ghost:
 		build_ghost.visible = false
 	if selected_tower and is_instance_valid(selected_tower):
@@ -626,6 +741,8 @@ func _on_start_wave() -> void:
 		return
 	wave_manager.start_wave()
 	$UI/StartWaveBtn.text = "提前开始下一波"
+	grid_map.pulse_route_hint(2.0)
+	_update_wave_preview()
 
 func _on_restart() -> void:
 	Engine.time_scale = 1.0
@@ -707,6 +824,7 @@ func _get_game_compendium_entries() -> Array[Dictionary]:
 func _on_all_waves_done() -> void:
 	$UI/StartWaveBtn.disabled = true
 	GameState.unlock_next_level(GameState.current_level)
+	wave_preview_label.text = "本关波次完成\n清点防线状态"
 	if GameState.current_level < level_maps.size():
 		$UI/StartWaveBtn.text = "本关完成"
 		next_level_btn.text = "挑战第%d关" % (GameState.current_level + 1)
@@ -725,9 +843,11 @@ func _on_next_level() -> void:
 func _on_wave_ready() -> void:
 	$UI/StartWaveBtn.disabled = false
 	$UI/StartWaveBtn.text = "开始波次"
+	_update_wave_preview()
 
 func _on_countdown_changed(remaining: float) -> void:
 	$UI/StartWaveBtn.text = "下波 %ds" % int(ceil(max(remaining, 0.0)))
+	_update_wave_preview("倒计时 %ds" % int(ceil(max(remaining, 0.0))))
 
 func _on_victory() -> void:
 	_show_result(true)
@@ -754,7 +874,10 @@ func _show_result(won: bool) -> void:
 	]
 	if won:
 		result_title.add_theme_color_override("font_color", Color(0.78, 1.0, 0.9))
-		if GameState.current_level >= level_maps.size():
+		if GameState.current_level == 0:
+			result_title.text = "教学完成"
+			result_body.text = "你已经掌握建塔、路线提示与波次预告。接下来可以进入第1关。\n\n%s" % summary
+		elif GameState.current_level >= level_maps.size():
 			result_title.text = "微观纪元完成"
 			result_body.text = "5 个裂谷节点全部稳定。这个试玩切片已经通关。\n\n%s" % summary
 		else:
@@ -766,5 +889,7 @@ func _show_result(won: bool) -> void:
 		result_body.text = "奇迹之塔受损。调整塔位与波次节奏，再试一次。\n\n%s" % summary
 
 func _get_current_level_name() -> String:
+	if GameState.current_level == 0:
+		return "教学关：微光入门"
 	var map_index := clampi(GameState.current_level - 1, 0, level_maps.size() - 1)
 	return str(level_maps[map_index].get("name", "第%d关" % GameState.current_level))

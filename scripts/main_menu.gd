@@ -195,7 +195,7 @@ func _get_compendium_entries() -> Array[Dictionary]:
 	return COMPENDIUM_DATA.get_enemies() if compendium_category == "enemies" else COMPENDIUM_DATA.get_towers()
 
 func _on_start_pressed() -> void:
-	_start_level(1)
+	_start_level(0)
 
 func _start_level(level: int) -> void:
 	if not GameState.is_level_unlocked(level):

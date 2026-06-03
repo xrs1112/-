@@ -6,7 +6,7 @@ extends Node
 const TOTAL_LEVELS: int = 5
 
 # 当前游戏状态
-var crystals: int = 100000         # 能量水晶（局内货币）- 测试用
+var crystals: int = 70            # 能量水晶（局内货币）
 var lives: int = 20              # 生命值
 var current_wave: int = 0        # 当前波次
 var total_waves: int = 0         # 总波次数
@@ -33,7 +33,7 @@ func _ready() -> void:
 	reset()
 
 func reset() -> void:
-	crystals = 100
+	crystals = 70
 	lives = 20
 	current_wave = 0
 	total_waves = 0
@@ -75,9 +75,11 @@ func trigger_game_over(won: bool) -> void:
 		game_lost.emit()
 
 func select_level(level: int) -> void:
-	current_level = clampi(level, 1, TOTAL_LEVELS)
+	current_level = clampi(level, 0, TOTAL_LEVELS)
 
 func is_level_unlocked(level: int) -> bool:
+	if level == 0:
+		return true
 	return level >= 1 and level <= unlocked_level
 
 func unlock_next_level(completed_level: int) -> void:

@@ -8,11 +8,11 @@ var slow_duration: float = 2.0
 func _ready() -> void:
 	tower_name = "观测棱镜"
 	description = "观测并减缓敌人的运动状态"
-	build_cost = 15
+	build_cost = 18
 	attack_damage = 1.0
 	attack_speed = 1.0
 	attack_range = 180.0
-	upgrade_cost = 20
+	upgrade_cost = 26
 	tower_color = Color(0.7, 0.7, 0.2, 0.8)  # 金色
 	super()
 

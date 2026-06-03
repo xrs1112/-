@@ -16,6 +16,9 @@ static var GOAL_CELL = Vector2i(21, 12)
 # 网格数据：0=空, 1=塔, 2=起点, 3=终点, 4=封禁区
 var grid: Array = []
 var blocked_rects: Array = []
+var route_hint_time: float = 0.0
+var route_hint_duration: float = 2.4
+var route_anim_time: float = 0.0
 
 # 塔引用
 var tower_at_cell: Dictionary = {}   # Vector2i → TowerBase
@@ -30,6 +33,14 @@ signal grid_changed()
 
 func _ready() -> void:
 	_init_grid()
+
+func _process(delta: float) -> void:
+	route_anim_time += delta
+	var had_route_hint = route_hint_time > 0.0
+	if route_hint_time > 0.0:
+		route_hint_time = max(0.0, route_hint_time - delta)
+	if route_hint_time > 0.0 or had_route_hint:
+		queue_redraw()
 
 func _init_grid() -> void:
 	grid = []
@@ -55,7 +66,13 @@ func load_map(new_blocked_rects: Array) -> void:
 	blocked_rects = new_blocked_rects
 	tower_at_cell.clear()
 	_init_grid()
+	pulse_route_hint(4.0)
 	grid_changed.emit()
+	queue_redraw()
+
+func pulse_route_hint(duration: float = 2.4) -> void:
+	route_hint_duration = max(duration, 0.1)
+	route_hint_time = max(route_hint_time, duration)
 	queue_redraw()
 
 func _draw() -> void:
@@ -71,6 +88,8 @@ func _draw() -> void:
 			if grid[row][col] == 4:
 				var pos = cell_to_world(Vector2i(col, row))
 				_draw_blocked_cell(pos, Vector2i(col, row))
+
+	_draw_route_hint()
 
 	# 绘制起点和终点
 	var start_pos = cell_to_world(START_CELL)
@@ -127,6 +146,43 @@ func _draw_gate(pos: Vector2, color: Color, label: String) -> void:
 	draw_circle(pos, 6.0, Color(color.r, color.g, color.b, 0.6))
 	draw_string(ThemeDB.fallback_font, pos + Vector2(-12, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)
 
+func _draw_route_hint() -> void:
+	if route_hint_time <= 0.0:
+		return
+
+	var route = get_current_route()
+	if route.size() < 2:
+		return
+
+	var points := PackedVector2Array()
+	for cell in route:
+		points.append(cell_to_world(cell))
+
+	var fade = clampf(route_hint_time / min(route_hint_duration, 0.9), 0.0, 1.0)
+	draw_polyline(points, Color(0.18, 0.75, 1.0, 0.055 * fade), 5.0)
+
+	var progress = 1.0 - clampf(route_hint_time / route_hint_duration, 0.0, 1.0)
+	var head_index = clampi(int(round(progress * float(route.size() - 1))), 1, route.size() - 1)
+	var tail_index = maxi(0, head_index - 7)
+
+	for i in range(tail_index + 1, head_index + 1):
+		var age = float(i - tail_index) / float(maxi(1, head_index - tail_index))
+		var prev = points[i - 1]
+		var pos = points[i]
+		var glow_alpha = (0.08 + age * 0.18) * fade
+		var core_alpha = (0.16 + age * 0.44) * fade
+		draw_line(prev, pos, Color(0.22, 0.86, 1.0, glow_alpha), 8.0)
+		draw_line(prev, pos, Color(0.62, 1.0, 0.9, core_alpha), 2.4)
+		draw_circle(pos, 1.8 + age * 2.6, Color(0.68, 1.0, 0.92, (0.16 + age * 0.34) * fade))
+
+	var head = points[head_index]
+	var prev_head = points[head_index - 1]
+	var dir = (head - prev_head).normalized()
+	var side = Vector2(-dir.y, dir.x)
+	var tip = head + dir * 10.0
+	var arrow = PackedVector2Array([tip, head - dir * 7.0 + side * 5.0, head - dir * 7.0 - side * 5.0])
+	draw_colored_polygon(arrow, Color(0.64, 1.0, 0.88, 0.42 * fade))
+
 # === 坐标转换 ===
 
 func world_to_cell(world_pos: Vector2) -> Vector2i:
@@ -153,6 +209,9 @@ func would_keep_path_if_blocked(cell: Vector2i) -> bool:
 	var path_exists = has_path(START_CELL, GOAL_CELL)
 	grid[cell.y][cell.x] = 0
 	return path_exists
+
+func get_current_route() -> Array[Vector2i]:
+	return find_path(START_CELL, GOAL_CELL)
 
 func is_cell_walkable(cell: Vector2i) -> bool:
 	if not is_valid_cell(cell):
