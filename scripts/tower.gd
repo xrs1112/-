@@ -12,8 +12,8 @@ extends Node2D
 @export var attack_speed: float = 1.0
 @export var attack_range: float = 150.0      # 像素范围
 @export var upgrade_cost: int = 80
-@export var upgrade_damage_bonus: float = 5.0
-@export var upgrade_speed_bonus: float = 0.2
+@export var upgrade_damage_bonus: float = 1.4
+@export var upgrade_speed_bonus: float = 0.15
 
 # 运行状态
 var level: int = 1

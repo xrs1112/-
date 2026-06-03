@@ -34,7 +34,7 @@ offset_left = 42.0
 offset_top = 102.0
 offset_right = 226.0
 offset_bottom = 130.0
-text = "水晶: 100"
+text = "水晶: 65"
 
 [node name="LivesLabel" type="Label" parent="UI/HUD"]
 layout_mode = 0
@@ -74,7 +74,7 @@ offset_left = 0.0
 offset_top = 0.0
 offset_right = 130.0
 offset_bottom = 30.0
-text = "量子棱镜 [12]"
+text = "量子棱镜 [14]"
 
 [node name="BtnObserver" type="Button" parent="UI/BuildMenu"]
 layout_mode = 0
@@ -82,7 +82,7 @@ offset_left = 0.0
 offset_top = 40.0
 offset_right = 130.0
 offset_bottom = 70.0
-text = "观测棱镜 [18]"
+text = "观测棱镜 [22]"
 
 [node name="BtnQuarkTrap" type="Button" parent="UI/BuildMenu"]
 layout_mode = 0
@@ -90,7 +90,7 @@ offset_left = 0.0
 offset_top = 80.0
 offset_right = 130.0
 offset_bottom = 110.0
-text = "虚粒子阱 [26]"
+text = "虚粒子阱 [30]"
 
 [node name="TowerMenu" type="Control" parent="UI"]
 visible = false

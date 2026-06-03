@@ -2,7 +2,7 @@
 class_name QuarkTrap
 extends TowerBase
 
-var explosion_damage: float = 3.0
+var explosion_damage: float = 4.0
 var explosion_radius: float = 80.0
 var has_exploded: bool = false
 var cooldown_after_explosion: float = 2.0
@@ -15,11 +15,13 @@ var shockwave_duration: float = 0.35
 func _ready() -> void:
 	tower_name = "虚粒子阱"
 	description = "敌人靠近时释放范围脉冲"
-	build_cost = 26
+	build_cost = 30
 	attack_damage = 0.0
 	attack_speed = 0.0
 	attack_range = explosion_radius
-	upgrade_cost = 34
+	upgrade_cost = 38
+	upgrade_damage_bonus = 0.0
+	upgrade_speed_bonus = 0.0
 	tower_color = Color(0.7, 0.25, 0.15, 0.8)  # 暗红
 	super()
 
@@ -70,12 +72,12 @@ func upgrade() -> bool:
 		return false
 	match level:
 		2:
-			explosion_damage = 5.0
+			explosion_damage = 6.5
 			explosion_radius = 92.0
 			attack_range = explosion_radius
 			cooldown_after_explosion = 1.5
 		3:
-			explosion_damage = 8.0
+			explosion_damage = 9.5
 			explosion_radius = 108.0
 			attack_range = explosion_radius
 			cooldown_after_explosion = 1.0
@@ -85,9 +87,9 @@ func upgrade() -> bool:
 func get_upgrade_preview() -> String:
 	match level:
 		1:
-			return "下级: 爆发 5.0，半径 92，冷却 1.5s"
+			return "下级: 爆发 6.5，半径 92，冷却 1.5s"
 		2:
-			return "下级: 爆发 8.0，半径 108，冷却 1.0s"
+			return "下级: 爆发 9.5，半径 108，冷却 1.0s"
 		_:
 			return "已满级: 高密度脉冲阱已激活"
 

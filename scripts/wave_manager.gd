@@ -22,6 +22,7 @@ signal wave_completed(wave_index: int)
 signal all_waves_finished_signal()
 signal wave_ready()
 signal countdown_changed(remaining: float)
+signal enemy_spawned(enemy: EnemyBase)
 
 func _ready() -> void:
 	pass
@@ -137,6 +138,7 @@ func _spawn_one(spawn: Dictionary) -> void:
 	enemy.max_health *= float(spawn.get("health_multiplier", 1.0))
 	enemy.current_health = enemy.max_health
 	enemy.speed *= float(spawn.get("speed_multiplier", 1.0))
+	enemy_spawned.emit(enemy)
 
 	spawn["remaining"] -= 1
 

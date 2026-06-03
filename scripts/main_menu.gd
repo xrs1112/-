@@ -4,6 +4,17 @@ extends Control
 const COMPENDIUM_DATA = preload("res://scripts/compendium_data.gd")
 const COMPENDIUM_PREVIEW = preload("res://scripts/compendium_preview.gd")
 
+const ERA_DATA: Array[Dictionary] = [
+	{"name": "微观裂谷", "enabled": true},
+	{"name": "分子潮汐", "enabled": false},
+	{"name": "细胞汪洋", "enabled": false},
+	{"name": "生命原野", "enabled": false},
+	{"name": "文明火种", "enabled": false},
+	{"name": "星海边疆", "enabled": false},
+	{"name": "宇宙奇点", "enabled": false},
+	{"name": "多元宇宙", "enabled": false},
+]
+
 @onready var level_buttons: Array[Button] = [
 	$LevelPanel/Level1Btn,
 	$LevelPanel/Level2Btn,
@@ -11,6 +22,7 @@ const COMPENDIUM_PREVIEW = preload("res://scripts/compendium_preview.gd")
 	$LevelPanel/Level4Btn,
 	$LevelPanel/Level5Btn,
 ]
+@onready var level_title: Label = $LevelPanel/LevelTitle
 @onready var compendium_button: Button = $BtnCompendium
 
 var compendium_panel: Panel = null
@@ -18,18 +30,29 @@ var compendium_preview: Control = null
 var compendium_detail_label: RichTextLabel = null
 var compendium_list_buttons: Array[Button] = []
 var compendium_category: String = "towers"
+var era_buttons: Array[Button] = []
+var era_back_button: Button = null
+var level_buttons_connected: bool = false
 
 func _ready() -> void:
 	_setup_compendium_ui()
+	_setup_era_ui()
 	_apply_style()
 	_setup_level_buttons()
+	_show_era_select()
 	$BtnStart.pressed.connect(_on_start_pressed)
 	compendium_button.pressed.connect(_show_compendium)
 	$BtnQuit.pressed.connect(_on_quit_pressed)
 
 func _apply_style() -> void:
 	$LevelPanel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.07, 0.13, 0.76), Color(0.25, 0.86, 1.0, 0.52)))
-	for button in [$BtnStart, compendium_button, $BtnQuit] + level_buttons + compendium_list_buttons:
+	var menu_buttons: Array[Button] = [$BtnStart, compendium_button, $BtnQuit]
+	menu_buttons.append_array(level_buttons)
+	menu_buttons.append_array(era_buttons)
+	menu_buttons.append_array(compendium_list_buttons)
+	if era_back_button:
+		menu_buttons.append(era_back_button)
+	for button in menu_buttons:
 		_style_button(button, 18)
 	if compendium_panel:
 		compendium_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.018, 0.055, 0.1, 0.95), Color(0.34, 0.95, 1.0, 0.72)))
@@ -69,6 +92,28 @@ func _make_panel_style(bg: Color, border: Color) -> StyleBoxFlat:
 	style.set_corner_radius_all(6)
 	return style
 
+func _setup_era_ui() -> void:
+	era_back_button = Button.new()
+	era_back_button.name = "EraBackBtn"
+	era_back_button.text = "返回"
+	era_back_button.set_position(Vector2(24, 14))
+	era_back_button.size = Vector2(88, 32)
+	era_back_button.visible = false
+	era_back_button.pressed.connect(_show_era_select)
+	$LevelPanel.add_child(era_back_button)
+
+	for i in range(ERA_DATA.size()):
+		var button = Button.new()
+		button.name = "EraBtn%d" % i
+		var col = i % 4
+		var row = int(i / 4)
+		button.set_position(Vector2(24 + col * 154, 58 + row * 50))
+		button.size = Vector2(140, 38)
+		var index = i
+		button.pressed.connect(func(): _on_era_pressed(index))
+		$LevelPanel.add_child(button)
+		era_buttons.append(button)
+
 func _setup_level_buttons() -> void:
 	for i in range(level_buttons.size()):
 		var level = i + 1
@@ -76,7 +121,42 @@ func _setup_level_buttons() -> void:
 		var unlocked = GameState.is_level_unlocked(level)
 		button.disabled = not unlocked
 		button.text = "第%d关" % level if unlocked else "第%d关 锁定" % level
-		button.pressed.connect(func(): _start_level(level))
+		if not level_buttons_connected:
+			button.pressed.connect(func(): _start_level(level))
+	level_buttons_connected = true
+
+func _show_era_select() -> void:
+	level_title.text = "选择纪元"
+	level_title.offset_left = 24
+	level_title.offset_right = 636
+	era_back_button.visible = false
+
+	for button in level_buttons:
+		button.visible = false
+
+	for i in range(era_buttons.size()):
+		var data = ERA_DATA[i]
+		var enabled = bool(data["enabled"])
+		var button = era_buttons[i]
+		button.visible = true
+		button.disabled = not enabled
+		button.text = str(data["name"])
+
+func _show_micro_levels() -> void:
+	level_title.text = "微观裂谷：选择关卡"
+	level_title.offset_left = 120
+	level_title.offset_right = 636
+	era_back_button.visible = true
+
+	for button in era_buttons:
+		button.visible = false
+	for button in level_buttons:
+		button.visible = true
+	_setup_level_buttons()
+
+func _on_era_pressed(index: int) -> void:
+	if index == 0:
+		_show_micro_levels()
 
 func _setup_compendium_ui() -> void:
 	compendium_panel = Panel.new()

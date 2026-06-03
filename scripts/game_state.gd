@@ -6,7 +6,7 @@ extends Node
 const TOTAL_LEVELS: int = 5
 
 # 当前游戏状态
-var crystals: int = 70            # 能量水晶（局内货币）
+var crystals: int = 65            # 能量水晶（局内货币）
 var lives: int = 20              # 生命值
 var current_wave: int = 0        # 当前波次
 var total_waves: int = 0         # 总波次数
@@ -33,7 +33,7 @@ func _ready() -> void:
 	reset()
 
 func reset() -> void:
-	crystals = 70
+	crystals = 65
 	lives = 20
 	current_wave = 0
 	total_waves = 0

@@ -5,11 +5,13 @@ extends TowerBase
 func _ready() -> void:
 	tower_name = "量子棱镜"
 	description = "稳定发射量子束，适合基础输出"
-	build_cost = 12
-	attack_damage = 1.0
+	build_cost = 14
+	attack_damage = 2.0
 	attack_speed = 1.0
 	attack_range = 150.0
-	upgrade_cost = 18
+	upgrade_cost = 22
+	upgrade_damage_bonus = 1.4
+	upgrade_speed_bonus = 0.15
 	tower_color = Color(0.3, 0.3, 0.7, 0.8)  # 深蓝紫
 	super()
 
@@ -18,10 +20,10 @@ func upgrade() -> bool:
 		return false
 	match level:
 		2:
-			attack_damage += 1.0
+			attack_damage += 0.6
 		3:
-			attack_damage += 0.5
-			attack_speed += 0.25
+			attack_damage += 0.3
+			attack_speed += 0.2
 	return true
 
 func _perform_attack(target) -> void:
@@ -50,9 +52,9 @@ func _find_secondary_target(primary):
 func get_upgrade_preview() -> String:
 	match level:
 		1:
-			return "下级: 伤害 +%.1f，强化棱镜导轨" % (upgrade_damage_bonus + 1.0)
+			return "下级: 伤害 +%.1f，强化棱镜导轨" % (upgrade_damage_bonus + 0.6)
 		2:
-			return "下级: 解锁折射副光束，攻速 +%.1f" % (upgrade_speed_bonus + 0.25)
+			return "下级: 解锁折射副光束，攻速 +%.1f" % (upgrade_speed_bonus + 0.2)
 		_:
 			return "已满级: 折射副光束已激活"
 

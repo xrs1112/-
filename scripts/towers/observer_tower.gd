@@ -8,11 +8,13 @@ var slow_duration: float = 2.0
 func _ready() -> void:
 	tower_name = "观测棱镜"
 	description = "观测并减缓敌人的运动状态"
-	build_cost = 18
-	attack_damage = 1.0
+	build_cost = 22
+	attack_damage = 1.6
 	attack_speed = 1.0
 	attack_range = 180.0
-	upgrade_cost = 26
+	upgrade_cost = 30
+	upgrade_damage_bonus = 0.8
+	upgrade_speed_bonus = 0.12
 	tower_color = Color(0.7, 0.7, 0.2, 0.8)  # 金色
 	super()
 
@@ -28,11 +30,11 @@ func upgrade() -> bool:
 		return false
 	match level:
 		2:
-			attack_damage += 0.5
+			attack_damage += 0.2
 			attack_range += 18.0
 			slow_duration = 2.7
 		3:
-			attack_damage += 0.5
+			attack_damage += 0.2
 			attack_range += 22.0
 			slow_factor = 0.38
 			slow_duration = 3.2

@@ -24,6 +24,8 @@ const TOWER_SELL_DELAY: float = 2.0
 @onready var build_menu: Control = $UI/BuildMenu
 @onready var tower_menu: Control = $UI/TowerMenu
 @onready var tower_info_label: Label = $UI/TowerMenu/TowerInfoLabel
+@onready var crystal_label: Label = $UI/HUD/CrystalLabel
+@onready var lives_label: Label = $UI/HUD/LivesLabel
 @onready var level_label: Label = $UI/HUD/LevelLabel
 @onready var message_label: Label = $UI/MessageLabel
 @onready var result_panel: Panel = $UI/ResultPanel
@@ -69,20 +71,24 @@ var current_wave_data: Array = []
 
 # 波次数据（10波，5个层级递进）
 var level_1_waves = [
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6,  "interval": 1.5, "tier": 1}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 1.3, "tier": 1}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.2, "tier": 1},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 2.0, "tier": 2}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 1.0, "tier": 2}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.2, "tier": 2},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 2.0, "tier": 3}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 6,  "interval": 1.3, "tier": 3}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.2, "tier": 3},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.5, "tier": 4}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.3, "tier": 4}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.2, "tier": 4},
-	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.5, "tier": 5}],
-	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 2.0, "tier": 5}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 1.35, "tier": 1}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 9, "interval": 1.10, "tier": 1}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 1.00, "tier": 1},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.80, "tier": 2}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 9,  "interval": 0.95, "tier": 2}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 8,  "interval": 0.85, "tier": 1, "speed_multiplier": 1.08},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.80, "tier": 3}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 7,  "interval": 0.95, "tier": 2},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 4,  "interval": 1.45, "tier": 3}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 1.05, "tier": 3},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.10, "tier": 4}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 9, "interval": 0.82, "tier": 2, "speed_multiplier": 1.1},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 1.80, "tier": 4}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 5,  "interval": 0.98, "tier": 3},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.55, "tier": 4},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 1,  "interval": 2.30, "tier": 5}],
+	[{"path": "res://scripts/enemies/enemy_tier.gd", "count": 3,  "interval": 1.25, "tier": 4},
+	 {"path": "res://scripts/enemies/enemy_tier.gd", "count": 2,  "interval": 2.00, "tier": 5}],
 ]
 
 var tutorial_waves = [
@@ -467,6 +473,7 @@ func _setup_signals() -> void:
 	wave_manager.all_waves_finished_signal.connect(_on_all_waves_done)
 	wave_manager.wave_ready.connect(_on_wave_ready)
 	wave_manager.countdown_changed.connect(_on_countdown_changed)
+	wave_manager.enemy_spawned.connect(_on_enemy_spawned)
 
 func _start_current_level() -> void:
 	GameState.reset()
@@ -535,6 +542,9 @@ func _clear_level_runtime() -> void:
 	for bullet in get_tree().get_nodes_in_group("bullet"):
 		if is_instance_valid(bullet):
 			bullet.queue_free()
+	for feedback in get_tree().get_nodes_in_group("feedback_float"):
+		if is_instance_valid(feedback):
+			feedback.queue_free()
 	for tower in grid_map.tower_at_cell.values():
 		if is_instance_valid(tower):
 			tower.queue_free()
@@ -722,11 +732,11 @@ func _hide_build_tooltip() -> void:
 func _get_build_tooltip_text(type: String) -> String:
 	match type:
 		"observer":
-			return "观测棱镜 [18]\n伤害 1.0  攻速 1.0\n射程 180  减速 50%\n控制塔，延长输出窗口"
+			return "观测棱镜 [22]\n伤害 1.6  攻速 1.0\n射程 180  减速 50%\n控制塔，延长输出窗口"
 		"quark_trap":
-			return "虚粒子阱 [26]\n爆发 3.0  半径 80\n冷却 2.0s\n范围清场，适合拐角"
+			return "虚粒子阱 [30]\n爆发 4.0  半径 80\n冷却 2.0s\n范围清场，适合拐角"
 		_:
-			return "量子棱镜 [12]\n伤害 1.0  攻速 1.0\n射程 150\n稳定单体输出"
+			return "量子棱镜 [14]\n伤害 2.0  攻速 1.0\n射程 150\n稳定单体输出"
 
 func _update_wave_preview(prefix: String = "") -> void:
 	var next_index = wave_manager.next_spawn_index
@@ -996,6 +1006,49 @@ func _show_message(text: String, duration: float = 1.4) -> void:
 			message_label.visible = false
 	)
 
+func _on_enemy_spawned(enemy: EnemyBase) -> void:
+	enemy.enemy_died.connect(_on_enemy_died)
+	enemy.enemy_reached_end.connect(_on_enemy_reached_end)
+
+func _on_enemy_died(enemy: EnemyBase) -> void:
+	_show_float_text("+%d 水晶" % enemy.reward_crystals, enemy.global_position + Vector2(-20, -24), Color(0.65, 1.0, 0.86, 0.96))
+	_pulse_control(crystal_label, Color(0.72, 1.0, 0.88, 1.0))
+
+func _on_enemy_reached_end(enemy: EnemyBase) -> void:
+	_show_float_text("生命 -%d" % enemy.damage_to_base, enemy.global_position + Vector2(-26, -24), Color(1.0, 0.42, 0.56, 0.98))
+
+func _show_float_text(text: String, screen_pos: Vector2, color: Color) -> void:
+	var label = Label.new()
+	label.add_to_group("feedback_float")
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.text = text
+	label.position = screen_pos
+	label.size = Vector2(120, 30)
+	label.modulate = Color(1, 1, 1, 1)
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.04, 0.08, 0.95))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	$UI.add_child(label)
+
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "position", screen_pos + Vector2(0, -30), 0.85)
+	tween.tween_property(label, "modulate:a", 0.0, 0.85)
+	tween.finished.connect(func():
+		if is_instance_valid(label):
+			label.queue_free()
+	)
+
+func _pulse_control(control: Control, color: Color) -> void:
+	if not is_instance_valid(control):
+		return
+	var original_modulate = control.modulate
+	var tween = create_tween()
+	tween.tween_property(control, "modulate", color, 0.08)
+	tween.tween_property(control, "modulate", original_modulate, 0.38)
+
 func _cancel_all() -> void:
 	selected_tower_type = ""
 	build_menu.visible = false
@@ -1164,6 +1217,8 @@ func _on_countdown_changed(remaining: float) -> void:
 	_update_wave_preview("倒计时 %ds" % int(ceil(max(remaining, 0.0))))
 
 func _on_lives_changed(new_amount: int) -> void:
+	if new_amount < last_lives:
+		_pulse_control(lives_label, Color(1.0, 0.42, 0.56, 1.0))
 	if _is_tutorial_level() and new_amount < last_lives and not tutorial_life_notice_shown:
 		tutorial_life_notice_shown = true
 		_show_tutorial_life_notice("生命值减少了：有敌人抵达 OUT。第二波结束后，我们会升级防御塔来解决它。", 4.2)
